@@ -7,7 +7,7 @@ A personal habit tracker built with SvelteKit, TypeScript, Tailwind CSS, Lucide 
 On Ubuntu 24.04 with Docker Compose installed:
 
 ```sh
-git clone https://github.com/YOUR-USERNAME/ecce-veritas.git
+git clone https://github.com/jayden-ferianto/ecce-veritas.git
 cd ecce-veritas
 docker compose up -d --build
 ```
