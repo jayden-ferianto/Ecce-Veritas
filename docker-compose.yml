@@ -1,0 +1,16 @@
+services:
+  ecce-veritas:
+    build: .
+    container_name: ecce-veritas
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /data/habits.db
+      TZ: ${TZ:-UTC}
+    volumes:
+      - habit-data:/data
+
+volumes:
+  habit-data:
