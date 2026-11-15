@@ -9,12 +9,16 @@ On Ubuntu 24.04 with Docker Compose installed:
 ```sh
 git clone https://github.com/YOUR-USERNAME/ecce-veritas.git
 cd ecce-veritas
+cp .env.example .env
+nano .env
 docker compose up -d --build
 ```
 
-Open `http://<server-ip>:3000`. To add it in CasaOS, create a custom app using this Compose configuration or deploy the project from its folder. The `habit-data` volume keeps your database when the container is rebuilt or upgraded. Set the `TZ` environment variable in Compose to your server's IANA timezone (for example, `Asia/Singapore`) so daily habit check-ins reset at the expected local midnight.
+Before starting, set a unique password of at least 16 characters and a separate random `APP_SECRET` in `.env`; generate the secret with `openssl rand -hex 32`. Keep `.env` private; it is excluded from Git. Set `TZ` to your server's IANA timezone (for example, `Asia/Singapore`) so daily check-ins reset at local midnight.
 
-To back up the database, stop the app and copy the `habits.db` file from the Docker volume. Keep the port private to your network or put the app behind an authenticated reverse proxy before exposing it to the internet; this initial version does not include user accounts.
+Production cookies are secure by default and require HTTPS. For CasaOS, put the app behind an HTTPS reverse proxy and set `ORIGIN` in `.env` to the exact public URL (for example, `https://habits.example.com`). For direct HTTP access on a trusted private LAN only, set `AUTH_COOKIE_SECURE=false` and use `http://<server-ip>:3000`; never expose that HTTP setup to the internet. This app uses one shared password rather than separate user accounts.
+
+The `habit-data` volume keeps your database when the container is rebuilt or upgraded. To back up the database, stop the app and copy the `habits.db` file from the Docker volume.
 
 ## Publish and update the server
 
@@ -29,13 +33,17 @@ git remote add origin https://github.com/YOUR-USERNAME/ecce-veritas.git
 git push -u origin main
 ```
 
-Clone it onto the Ubuntu server once, then start the app:
+Clone it onto the Ubuntu server once, configure the password and secret as described above, then start the app:
 
 ```sh
 git clone https://github.com/YOUR-USERNAME/ecce-veritas.git
 cd ecce-veritas
+cp .env.example .env
+nano .env
 docker compose up -d --build
 ```
+
+Do not copy `.env` into GitHub.
 
 For each later change, publish it from Windows:
 
@@ -45,7 +53,28 @@ git commit -m "Describe your change"
 git push
 ```
 
-Then update the running server from the same project folder:
+For the first update that adds authentication to an already-running server, pull the code first so `.env.example` is available:
+
+```sh
+git pull --ff-only
+```
+
+If the server does not already have a `.env` file, create one and edit it. If it does, keep it and add the required settings:
+
+```sh
+# Run this only if .env does not already exist:
+cp .env.example .env
+# Then edit the existing .env:
+nano .env
+```
+
+Set `APP_PASSWORD`, `APP_SECRET`, and the appropriate `AUTH_COOKIE_SECURE`/`ORIGIN` values in `.env`, then rebuild:
+
+```sh
+docker compose up -d --build
+```
+
+Keep `.env` unchanged on later updates so your password and sessions remain stable. For subsequent changes:
 
 ```sh
 git pull --ff-only
@@ -63,7 +92,7 @@ npm install
 npm run dev
 ```
 
-The local database is created at `data/habits.db`. Set `DATABASE_PATH` to use another location. Set `TZ` to configure the local day boundary if your machine's timezone is not the one you want to use.
+Copy `.env.example` to `.env` and set a password of at least 16 characters and a random `APP_SECRET` before running locally. The local database is created at `data/habits.db`. Set `DATABASE_PATH` to use another location. Set `TZ` to configure the local day boundary if your machine's timezone is not the one you want to use.
 
 ## Features
 

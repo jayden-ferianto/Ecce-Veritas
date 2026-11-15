@@ -9,6 +9,10 @@ services:
       NODE_ENV: production
       DATABASE_PATH: /data/habits.db
       TZ: ${TZ:-UTC}
+      APP_PASSWORD: ${APP_PASSWORD:?Set APP_PASSWORD in .env}
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      ORIGIN: ${ORIGIN:-}
     volumes:
       - habit-data:/data
 

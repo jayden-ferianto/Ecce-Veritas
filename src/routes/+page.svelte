@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Check, ChevronRight, CircleCheck, Flame, Minus, Plus, Sparkles, Target, X } from 'lucide-svelte';
+  import LogoutButton from '$lib/components/LogoutButton.svelte';
   import type { Habit } from '$lib/types';
 
   export let data: { today: string; habits: Habit[] };
@@ -112,7 +113,7 @@
     <header class="topbar">
       <div class="mobile-brand"><span class="brand-mark"><Sparkles size={17} /></span> Ecce Veritas</div>
       <div class="topbar-date"><span class="live-dot"></span>{formattedDate}</div>
-      <div class="profile-chip"><span class="profile-avatar">🌱</span><span>My garden</span></div>
+      <LogoutButton />
     </header>
 
     <section class="page-content">

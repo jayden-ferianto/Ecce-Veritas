@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ArrowLeft, Check, Flame, Target, TrendingUp } from 'lucide-svelte';
+  import LogoutButton from '$lib/components/LogoutButton.svelte';
   import type { Habit } from '$lib/types';
 
   export let data: {
@@ -65,7 +66,7 @@
     <header class="topbar">
       <div class="mobile-brand"><span class="brand-mark">✳</span> Ecce Veritas</div>
       <a class="back-link" href="/"><ArrowLeft size={17} /> All habits</a>
-      <div class="profile-chip"><span class="profile-avatar">🌱</span><span>My garden</span></div>
+      <LogoutButton />
     </header>
 
     <section class="page-content detail-page">
