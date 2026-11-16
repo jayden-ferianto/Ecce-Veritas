@@ -1,14 +1,20 @@
 <script lang="ts">
-  import { Sparkles } from 'lucide-svelte';
+  import { Eye, EyeOff, Sparkles } from 'lucide-svelte';
 
   export let data: { configured: boolean };
   let password = '';
+  let showPassword = false;
   let errorMessage = '';
   let submitting = false;
+
+  function hidePassword() {
+    showPassword = false;
+  }
 
   async function signIn(event: SubmitEvent) {
     event.preventDefault();
     submitting = true;
+    hidePassword();
     errorMessage = '';
     try {
       const response = await fetch('/api/auth/login', {
@@ -48,15 +54,33 @@
     {#if data.configured}
       <form class="auth-form" on:submit={signIn}>
         <label for="password">App password</label>
-        <input
-          id="password"
-          type="password"
-          bind:value={password}
-          autocomplete="current-password"
-          required
-          maxlength="1024"
-          disabled={submitting}
-        />
+        <div class="auth-password-field">
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            bind:value={password}
+            autocomplete="current-password"
+            required
+            maxlength="1024"
+            disabled={submitting}
+          />
+          <button
+            class="auth-password-toggle"
+            type="button"
+            aria-label={showPassword ? 'Release to hide password' : 'Hold to show password'}
+            aria-pressed={showPassword}
+            disabled={submitting}
+            on:pointerdown={(event) => {
+              showPassword = true;
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            on:pointerup={hidePassword}
+            on:pointercancel={hidePassword}
+            on:blur={hidePassword}
+          >
+            {#if showPassword}<EyeOff size={19} />{:else}<Eye size={19} />{/if}
+          </button>
+        </div>
         {#if errorMessage}<div class="auth-error" role="alert">{errorMessage}</div>{/if}
         <button class="primary-button auth-submit" type="submit" disabled={submitting || !password}>
           {submitting ? 'Signing in…' : 'Sign in'}

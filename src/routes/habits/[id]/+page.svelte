@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { ArrowLeft, Check, Flame, Target, TrendingUp } from 'lucide-svelte';
+  import { ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, Target, TrendingUp } from 'lucide-svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
-  import type { Habit } from '$lib/types';
+  import type { Habit, HabitDay } from '$lib/types';
 
   export let data: {
     habit: Habit;
@@ -9,20 +9,86 @@
     days: { date: string; value: number; completed: boolean }[];
     successfulDays: number;
     streak: number;
+    historyDays: HabitDay[];
+    calendarOffset: number;
+    month: string;
+    previousMonth: string | null;
+    nextMonth: string | null;
   };
 
-  $: completionRate = Math.round((data.successfulDays / data.days.length) * 100);
+  let selectedDate: string | null = null;
+  let entryValue = 0;
+  let entryCompleted = false;
+  let savingEntry = false;
+  let entryError = '';
+
+  $: successfulDays = data.days.filter((day) =>
+    data.habit.type === 'daily' ? day.completed : day.value >= data.habit.target
+  ).length;
+  $: completionRate = Math.round((successfulDays / data.days.length) * 100);
   $: monthLabel = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-    .format(new Date(`${data.today}T12:00:00Z`));
-  $: dayLabels = data.days.slice(-7).map((day) => ({
+    .format(new Date(`${data.month}-01T12:00:00Z`));
+  $: dayLabels = data.historyDays.slice(-7).map((day) => ({
     ...day,
     weekday: new Intl.DateTimeFormat('en', { weekday: 'short', timeZone: 'UTC' })
       .format(new Date(`${day.date}T12:00:00Z`))
   }));
-  $: bestValue = Math.max(1, ...data.days.map((day) => day.value));
+  $: bestValue = Math.max(1, ...data.historyDays.map((day) => day.value));
+  $: streak = calculateStreak(data.days);
+
+  function calculateStreak(days: typeof data.days) {
+    let count = 0;
+    const today = days[days.length - 1];
+    const todayIsSuccessful = today && daySucceeded(today);
+    for (let index = days.length - (todayIsSuccessful ? 1 : 2); index >= 0; index -= 1) {
+      if (daySucceeded(days[index])) count += 1;
+      else break;
+    }
+    return count;
+  }
 
   function daySucceeded(day: { value: number; completed: boolean }) {
     return data.habit.type === 'daily' ? day.completed : day.value >= data.habit.target;
+  }
+
+  function selectDay(day: HabitDay) {
+    selectedDate = day.date;
+    entryValue = day.value;
+    entryCompleted = day.completed;
+    entryError = '';
+  }
+
+  async function saveEntry(event: SubmitEvent) {
+    event.preventDefault();
+    if (!selectedDate || savingEntry) return;
+    savingEntry = true;
+    entryError = '';
+    try {
+      const body = data.habit.type === 'daily'
+        ? { completed: entryCompleted }
+        : { value: entryValue };
+      const response = await fetch(`/api/habits/${data.habit.id}/entries/${selectedDate}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        entryError = result.error ?? 'Could not save this entry. Please try again.';
+        return;
+      }
+
+      const savedEntry = result.entry as HabitDay;
+      data = {
+        ...data,
+        days: data.days.map((day) => day.date === savedEntry.date ? savedEntry : day),
+        historyDays: data.historyDays.map((day) => day.date === savedEntry.date ? savedEntry : day)
+      };
+    } catch {
+      entryError = 'Could not save this entry. Please try again.';
+    } finally {
+      savingEntry = false;
+    }
   }
 
   async function removeHabit() {
@@ -92,41 +158,100 @@
           <p>Every little effort is adding up. Keep growing in your own time.</p>
         </div>
         <div class="summary-metrics">
-          <div><Flame size={18} /><strong>{data.streak}</strong><span>day streak</span></div>
+          <div><Flame size={18} /><strong>{streak}</strong><span>day streak</span></div>
           <div><TrendingUp size={18} /><strong>{completionRate}%</strong><span>30-day rhythm</span></div>
-          <div><Check size={18} /><strong>{data.successfulDays}</strong><span>days reached</span></div>
+          <div><Check size={18} /><strong>{successfulDays}</strong><span>days reached</span></div>
         </div>
       </section>
 
       <section class="history-section">
         <div class="section-heading">
-          <div><h2>Your rhythm</h2><p>A gentle look at the past 30 days.</p></div>
-          <span class="month-tag">{monthLabel}</span>
+          <div><h2>Your history</h2><p>Select any day to add or edit its entry.</p></div>
+          <nav class="history-month-nav" aria-label="Browse habit history by month">
+            {#if data.previousMonth}
+              <a
+                class="history-month-button"
+                href={`/habits/${data.habit.id}?month=${data.previousMonth}`}
+                aria-label="Previous month"
+                title="Previous month"
+                on:click={() => (selectedDate = null)}
+              ><ChevronLeft size={17} /></a>
+            {:else}
+              <span class="history-month-button disabled" aria-hidden="true"><ChevronLeft size={17} /></span>
+            {/if}
+            <span class="month-tag">{monthLabel}</span>
+            {#if data.nextMonth}
+              <a
+                class="history-month-button"
+                href={`/habits/${data.habit.id}?month=${data.nextMonth}`}
+                aria-label="Next month"
+                title="Next month"
+                on:click={() => (selectedDate = null)}
+              ><ChevronRight size={17} /></a>
+            {:else}
+              <span class="history-month-button disabled" aria-hidden="true"><ChevronRight size={17} /></span>
+            {/if}
+          </nav>
         </div>
         <div class="history-card">
-          <div class="history-week">
-            {#each dayLabels as day}
-              <div class="week-day">
-                <span>{day.weekday}</span>
-                <div class:day-done={daySucceeded(day)} class="week-dot">
-                  {#if daySucceeded(day)}<Check size={14} />{:else}<span></span>{/if}
-                </div>
-                <small>{day.date.slice(8)}</small>
-              </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            {#each ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as weekday}
+              <span>{weekday}</span>
             {/each}
           </div>
           <div class="history-divider"></div>
-          <div class="calendar-grid" aria-label="30 day habit history">
-            {#each data.days as day}
-              <div
+          <div class="calendar-grid" aria-label={`${monthLabel} habit history`}>
+            {#each [0, 1, 2, 3, 4, 5, 6] as offset}
+              {#if offset < data.calendarOffset}<span class="calendar-spacer" aria-hidden="true"></span>{/if}
+            {/each}
+            {#each data.historyDays as day}
+              <button
+                type="button"
                 class:calendar-done={daySucceeded(day)}
                 class:calendar-today={day.date === data.today}
+                class:calendar-selected={day.date === selectedDate}
                 class={`calendar-cell ${data.habit.color}`}
+                aria-label={`${day.date}: ${data.habit.type === 'daily' ? day.completed ? 'done' : 'not done' : `${day.value} of ${data.habit.target}`}. Select to edit.`}
+                aria-pressed={day.date === selectedDate}
                 title={`${day.date}: ${data.habit.type === 'daily' ? day.completed ? 'done' : 'not done' : `${day.value} of ${data.habit.target}`}`}
-              ></div>
+                on:click={() => selectDay(day)}
+              ></button>
             {/each}
           </div>
           <div class="calendar-legend"><span>Just starting</span><span class="legend-swatch"></span><span>Reached your goal</span></div>
+          {#if selectedDate}
+            <form class="history-editor" on:submit={saveEntry}>
+              <div class="history-editor-title">
+                <strong>Edit entry</strong>
+                <span>{new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${selectedDate}T12:00:00Z`))}</span>
+              </div>
+              {#if data.habit.type === 'daily'}
+                <label class="history-completed">
+                  <input type="checkbox" bind:checked={entryCompleted} disabled={savingEntry} />
+                  <span>Completed this habit</span>
+                </label>
+              {:else}
+                <div class="history-count-field">
+                  <label for="history-count">Times completed</label>
+                  <input
+                    id="history-count"
+                    class="history-count-input"
+                    type="number"
+                    bind:value={entryValue}
+                    min="0"
+                    max="999999"
+                    step="1"
+                    required
+                    disabled={savingEntry}
+                  />
+                </div>
+              {/if}
+              {#if entryError}<div class="auth-error" role="alert">{entryError}</div>{/if}
+              <button class="primary-button history-save" type="submit" disabled={savingEntry}>
+                {savingEntry ? 'Saving…' : 'Save entry'}
+              </button>
+            </form>
+          {/if}
         </div>
       </section>
 
