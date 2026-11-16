@@ -33,7 +33,7 @@ export const load: PageServerLoad = ({ params, url }) => {
   const days = Array.from({ length: 30 }, (_, index) => {
     const date = shiftDay(today, index - 29);
     const entry = recentByDate.get(date);
-    return { date, value: entry?.value ?? 0, completed: entry?.completed ?? false };
+    return { date, value: entry?.value ?? 0, completed: entry?.completed ?? false, note: entry?.note ?? '' };
   });
   const monthStart = `${month}-01`;
   const monthEnd = month === todayMonth
@@ -45,7 +45,12 @@ export const load: PageServerLoad = ({ params, url }) => {
   const historyDays: HabitDay[] = [];
   for (let date = monthStart; date <= monthEnd; date = shiftDay(date, 1)) {
     const entry = monthByDate.get(date);
-    historyDays.push({ date, value: entry?.value ?? 0, completed: entry?.completed ?? false });
+    historyDays.push({
+      date,
+      value: entry?.value ?? 0,
+      completed: entry?.completed ?? false,
+      note: entry?.note ?? ''
+    });
   }
 
   const successfulDays = days.filter((day) =>

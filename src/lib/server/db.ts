@@ -35,9 +35,15 @@ db.exec(`
     day TEXT NOT NULL,
     value INTEGER NOT NULL DEFAULT 0 CHECK (value >= 0),
     completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
+    note TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (habit_id, day)
   );
 `);
+
+const entryColumns = db.pragma('table_info(entries)') as { name: string }[];
+if (!entryColumns.some((column) => column.name === 'note')) {
+  db.exec("ALTER TABLE entries ADD COLUMN note TEXT NOT NULL DEFAULT ''");
+}
 
 export function listHabits(day: string): Habit[] {
   return db
@@ -87,20 +93,28 @@ export function saveEntry(
   habit: Habit,
   day: string,
   value: number,
-  completed: boolean
+  completed: boolean,
+  note?: string
 ): HabitDay {
   db.prepare(
-    `INSERT INTO entries (habit_id, day, value, completed)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT (habit_id, day) DO UPDATE SET value = excluded.value, completed = excluded.completed`
-  ).run(habit.id, day, value, completed ? 1 : 0);
-  return { date: day, value, completed };
+    `INSERT INTO entries (habit_id, day, value, completed, note)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (habit_id, day) DO UPDATE SET
+       value = excluded.value,
+       completed = excluded.completed,
+       note = CASE WHEN ? = 1 THEN excluded.note ELSE entries.note END`
+  ).run(habit.id, day, value, completed ? 1 : 0, note ?? '', note === undefined ? 0 : 1);
+  const entry = db
+    .prepare('SELECT day AS date, value, completed, note FROM entries WHERE habit_id = ? AND day = ?')
+    .get(habit.id, day) as HabitHistoryRow | undefined;
+  if (!entry) throw new Error('Saved entry could not be loaded from the database.');
+  return { ...entry, completed: Boolean(entry.completed) };
 }
 
 export function getHabitHistory(id: string, start: string, end: string): HabitDay[] {
   return db
     .prepare(
-      `SELECT day AS date, value, completed
+      `SELECT day AS date, value, completed, note
        FROM entries
        WHERE habit_id = ? AND day BETWEEN ? AND ?
        ORDER BY day ASC`

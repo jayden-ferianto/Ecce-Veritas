@@ -98,4 +98,4 @@ Copy `.env.example` to `.env` and set a password of at least 16 characters and a
 
 - Daily habits that can be checked off once per day.
 - Counted habits with configurable daily targets and increment/decrement controls.
-- Optional descriptions, daily overview progress, 30-day history, streaks, and individual habit status pages.
+- Optional descriptions and per-day notes, daily overview progress, dated monthly history, 30-day history, streaks, and individual habit status pages.

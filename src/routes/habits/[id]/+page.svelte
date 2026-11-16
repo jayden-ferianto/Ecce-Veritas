@@ -19,6 +19,7 @@
   let selectedDate: string | null = null;
   let entryValue = 0;
   let entryCompleted = false;
+  let entryNote = '';
   let savingEntry = false;
   let entryError = '';
 
@@ -55,6 +56,7 @@
     selectedDate = day.date;
     entryValue = day.value;
     entryCompleted = day.completed;
+    entryNote = day.note;
     entryError = '';
   }
 
@@ -65,8 +67,8 @@
     entryError = '';
     try {
       const body = data.habit.type === 'daily'
-        ? { completed: entryCompleted }
-        : { value: entryValue };
+        ? { completed: entryCompleted, note: entryNote }
+        : { value: entryValue, note: entryNote };
       const response = await fetch(`/api/habits/${data.habit.id}/entries/${selectedDate}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -215,7 +217,7 @@
                 aria-pressed={day.date === selectedDate}
                 title={`${day.date}: ${data.habit.type === 'daily' ? day.completed ? 'done' : 'not done' : `${day.value} of ${data.habit.target}`}`}
                 on:click={() => selectDay(day)}
-              ></button>
+              ><span class="calendar-date">{Number(day.date.slice(-2))}</span></button>
             {/each}
           </div>
           <div class="calendar-legend"><span>Just starting</span><span class="legend-swatch"></span><span>Reached your goal</span></div>
@@ -246,6 +248,17 @@
                   />
                 </div>
               {/if}
+              <div class="history-note-field">
+                <label for="history-note">Note or reflection <span class="optional">(optional)</span></label>
+                <textarea
+                  id="history-note"
+                  bind:value={entryNote}
+                  maxlength="2000"
+                  rows="3"
+                  placeholder="How did it go? Anything you want to remember?"
+                  disabled={savingEntry}
+                ></textarea>
+              </div>
               {#if entryError}<div class="auth-error" role="alert">{entryError}</div>{/if}
               <button class="primary-button history-save" type="submit" disabled={savingEntry}>
                 {savingEntry ? 'Saving…' : 'Save entry'}

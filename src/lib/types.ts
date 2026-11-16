@@ -16,4 +16,5 @@ export interface HabitDay {
   date: string;
   value: number;
   completed: boolean;
+  note: string;
 }
