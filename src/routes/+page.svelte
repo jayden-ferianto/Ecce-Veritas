@@ -231,7 +231,7 @@
 
 {#if showCreate}
   <div class="modal-backdrop" role="presentation">
-    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+    <dialog open class="modal" aria-modal="true" aria-labelledby="modal-title">
       <button class="modal-close" aria-label="Close" on:click={() => (showCreate = false)}><X size={20} /></button>
       <div class="modal-kicker">GROW SOMETHING GOOD</div>
       <h2 id="modal-title">Plant a new habit</h2>
@@ -241,17 +241,19 @@
         <input id="habit-name" bind:value={draft.name} maxlength="80" placeholder="e.g. Read a few pages" required />
         <label for="habit-description">A little more about it <span class="optional">(optional)</span></label>
         <textarea id="habit-description" bind:value={draft.description} maxlength="240" rows="2" placeholder="Why does this matter to you?"></textarea>
-        <label>How will you track it?</label>
-        <div class="type-options">
-          <button type="button" class:chosen={draft.type === 'daily'} on:click={() => (draft.type = 'daily')}>
-            <span class="type-option-icon"><Check size={17} /></span>
-            <span><strong>Once a day</strong><small>Check it off when done</small></span>
-          </button>
-          <button type="button" class:chosen={draft.type === 'count'} on:click={() => (draft.type = 'count')}>
-            <span class="type-option-icon"><Flame size={17} /></span>
-            <span><strong>Count it up</strong><small>Log each time you do it</small></span>
-          </button>
-        </div>
+        <fieldset class="type-fieldset">
+          <legend>How will you track it?</legend>
+          <div class="type-options">
+            <button type="button" class:chosen={draft.type === 'daily'} on:click={() => (draft.type = 'daily')}>
+              <span class="type-option-icon"><Check size={17} /></span>
+              <span><strong>Once a day</strong><small>Check it off when done</small></span>
+            </button>
+            <button type="button" class:chosen={draft.type === 'count'} on:click={() => (draft.type = 'count')}>
+              <span class="type-option-icon"><Flame size={17} /></span>
+              <span><strong>Count it up</strong><small>Log each time you do it</small></span>
+            </button>
+          </div>
+        </fieldset>
         {#if draft.type === 'count'}
           <label for="habit-target">Daily target</label>
           <input id="habit-target" type="number" bind:value={draft.target} min="1" max="999" required />
@@ -261,6 +263,6 @@
         </button>
         {#if errorMessage}<div class="error-banner modal-error" role="alert">{errorMessage}</div>{/if}
       </form>
-    </section>
+    </dialog>
   </div>
 {/if}

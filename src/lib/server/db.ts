@@ -10,6 +10,15 @@ mkdirSync(dirname(databasePath), { recursive: true });
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+
+interface HabitRow extends Omit<Habit, 'completed'> {
+  completed: number;
+}
+
+interface HabitHistoryRow extends Omit<HabitDay, 'completed'> {
+  completed: number;
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS habits (
     id TEXT PRIMARY KEY,
@@ -39,7 +48,10 @@ export function listHabits(day: string): Habit[] {
        ORDER BY h.created_at ASC`
     )
     .all(day)
-    .map((row) => ({ ...row, completed: Boolean(row.completed) }) as Habit);
+    .map((row) => {
+      const habit = row as HabitRow;
+      return { ...habit, completed: Boolean(habit.completed) };
+    });
 }
 
 export function createHabit(input: {
@@ -67,7 +79,7 @@ export function getHabit(id: string, day: string): Habit | undefined {
        LEFT JOIN entries e ON e.habit_id = h.id AND e.day = ?
        WHERE h.id = ?`
     )
-    .get(day, id) as (Omit<Habit, 'completed'> & { completed: number }) | undefined;
+    .get(day, id) as HabitRow | undefined;
   return row ? { ...row, completed: Boolean(row.completed) } : undefined;
 }
 
@@ -94,10 +106,10 @@ export function getHabitHistory(id: string, start: string, end: string): HabitDa
        ORDER BY day ASC`
     )
     .all(id, start, end)
-    .map((row) => ({
-      ...(row as { date: string; value: number; completed: number }),
-      completed: Boolean((row as { completed: number }).completed)
-    }));
+    .map((row) => {
+      const entry = row as HabitHistoryRow;
+      return { ...entry, completed: Boolean(entry.completed) };
+    });
 }
 
 export function deleteHabit(id: string): void {
