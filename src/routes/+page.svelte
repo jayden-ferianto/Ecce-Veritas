@@ -1,7 +1,29 @@
 <script lang="ts">
-  import { Check, ChevronRight, CircleCheck, Flame, Minus, Plus, Sparkles, Target, X } from 'lucide-svelte';
+  import {
+    Archive,
+    BookOpenText,
+    Check,
+    ChevronRight,
+    CircleCheck,
+    Compass,
+    Flame,
+    Minus,
+    Plus,
+    Sparkles,
+    Target,
+    TrendingUp,
+    X
+  } from 'lucide-svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
   import type { Habit } from '$lib/types';
+
+  const sidebarSuggestions = [
+    { label: 'Today', icon: Target, active: true },
+    { label: 'Focus', icon: Compass },
+    { label: 'Journal', icon: BookOpenText },
+    { label: 'Progress', icon: TrendingUp },
+    { label: 'Archive', icon: Archive }
+  ];
 
   export let data: { today: string; habits: Habit[] };
   let habits = data.habits;
@@ -93,10 +115,31 @@
       <span class="brand-mark"><Sparkles size={19} strokeWidth={2.2} /></span>
       <span>Ecce <span class="brand-light">Veritas</span></span>
     </a>
+
     <div class="side-label">YOUR SPACE</div>
-    <a class="nav-link active" href="/">
-      <Target size={18} /><span>Today</span>
-    </a>
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      {#each sidebarSuggestions as link}
+        <button type="button" class:active={link.active} class="nav-link" aria-current={link.active ? 'page' : undefined}>
+          <svelte:component this={link.icon} size={18} />
+          <span>{link.label}</span>
+          {#if link.label === 'Progress'}
+            <span class="nav-meta">4</span>
+          {/if}
+        </button>
+      {/each}
+    </nav>
+
+    <div class="sidebar-divider"></div>
+    <div class="side-label secondary-label">SUGGESTIONS</div>
+    <button type="button" class="nav-link nav-link-secondary">
+      <Sparkles size={17} />
+      <span>Habit ideas</span>
+    </button>
+    <button type="button" class="nav-link nav-link-secondary">
+      <BookOpenText size={17} />
+      <span>Reflection</span>
+    </button>
+
     <div class="sidebar-note">
       <span class="note-icon"><Sparkles size={16} /></span>
       <p class="note-title">Small steps count.</p>
@@ -105,7 +148,7 @@
     </div>
     <div class="sidebar-bottom">
       <span class="status-dot"></span>
-      <span>Just you, growing at your pace</span>
+      <span>A private space, at your pace</span>
     </div>
   </aside>
 
@@ -139,7 +182,7 @@
             <div class="overview-label">TODAY'S MOMENTUM</div>
             <div class="overview-title">
               {#if habits.length === 0}
-                Your garden is ready to grow
+                Your space is ready
               {:else if completedCount === habits.length}
                 You showed up for yourself today!
               {:else}
@@ -147,7 +190,7 @@
               {/if}
             </div>
             <div class="overview-subtitle">
-              {habits.length ? `${completedCount} of ${habits.length} habits reached their goal` : 'Plant your first habit to get started'}
+              {habits.length ? `${completedCount} of ${habits.length} habits reached their goal` : 'Add your first habit to get started'}
             </div>
           </div>
         </div>
@@ -214,17 +257,17 @@
         </div>
       {:else}
         <div class="empty-state">
-          <div class="empty-illustration">🌿</div>
+          <div class="empty-illustration"><Sparkles size={30} strokeWidth={1.5} /></div>
           <h3>A fresh start</h3>
-          <p>Every garden begins with one seed. Add a habit you'd like to nurture.</p>
-          <button class="secondary-button" on:click={() => (showCreate = true)}><Plus size={16} /> Plant your first habit</button>
+          <p>Start with one small habit you want to make time for.</p>
+          <button class="secondary-button" on:click={() => (showCreate = true)}><Plus size={16} /> Add your first habit</button>
         </div>
       {/if}
 
       {#if habits.length}
         <button class="add-another" on:click={() => (showCreate = true)}><span><Plus size={17} /></span> Add another habit</button>
       {/if}
-      <footer class="page-footer"><span>Made for steady growth</span><span>✳</span></footer>
+      <footer class="page-footer"><span>One day at a time</span><span>✳</span></footer>
     </section>
   </main>
 </div>
@@ -233,9 +276,9 @@
   <div class="modal-backdrop" role="presentation">
     <dialog open class="modal" aria-modal="true" aria-labelledby="modal-title">
       <button class="modal-close" aria-label="Close" on:click={() => (showCreate = false)}><X size={20} /></button>
-      <div class="modal-kicker">GROW SOMETHING GOOD</div>
-      <h2 id="modal-title">Plant a new habit</h2>
-      <p class="modal-description">Start small. You can always grow from here.</p>
+      <div class="modal-kicker">A NEW COMMITMENT</div>
+      <h2 id="modal-title">Add a new habit</h2>
+      <p class="modal-description">Start small. You can build from here.</p>
       <form on:submit={createHabit}>
         <label for="habit-name">Habit name</label>
         <input id="habit-name" bind:value={draft.name} maxlength="80" placeholder="e.g. Read a few pages" required />
@@ -259,7 +302,7 @@
           <input id="habit-target" type="number" bind:value={draft.target} min="1" max="999" required />
         {/if}
         <button class="primary-button modal-submit" type="submit" disabled={saving}>
-          <Plus size={17} /> {saving ? 'Planting…' : 'Add to my garden'}
+          <Plus size={17} /> {saving ? 'Adding…' : 'Add habit'}
         </button>
         {#if errorMessage}<div class="error-banner modal-error" role="alert">{errorMessage}</div>{/if}
       </form>

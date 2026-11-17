@@ -127,7 +127,7 @@
       <p class="note-copy">Show up for yourself, one day at a time.</p>
       <div class="note-decoration"><span></span><span></span><span></span></div>
     </div>
-    <div class="sidebar-bottom"><span class="status-dot"></span><span>Just you, growing at your pace</span></div>
+    <div class="sidebar-bottom"><span class="status-dot"></span><span>A private space, at your pace</span></div>
   </aside>
 
   <main class="main-content">
@@ -284,7 +284,7 @@
           </div>
         </section>
       {/if}
-      <footer class="page-footer"><span>Made for steady growth</span><span>✳</span></footer>
+      <footer class="page-footer"><span>One day at a time</span><span>✳</span></footer>
     </section>
   </main>
 </div>

@@ -92,6 +92,6 @@
         <span>Set APP_PASSWORD and APP_SECRET in the server's .env file, then restart Ecce Veritas.</span>
       </div>
     {/if}
-    <div class="auth-footer"><span class="status-dot"></span> Your garden is just for you</div>
+    <div class="auth-footer"><span class="status-dot"></span> A quiet space, just for you</div>
   </section>
 </main>

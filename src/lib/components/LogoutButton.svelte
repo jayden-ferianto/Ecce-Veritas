@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LogOut } from 'lucide-svelte';
+  import { LogOut, UserRound } from 'lucide-svelte';
 
   let pending = false;
 
@@ -21,7 +21,7 @@
 </script>
 
 <button class="profile-chip logout-button" type="button" on:click={logout} disabled={pending}>
-  <span class="profile-avatar">🌱</span>
+  <span class="profile-avatar"><UserRound size={14} /></span>
   <span>{pending ? 'Signing out…' : 'Sign out'}</span>
   <LogOut size={14} />
 </button>
