@@ -29,6 +29,7 @@ db.exec(`
     target INTEGER NOT NULL DEFAULT 1 CHECK (target >= 1),
     color TEXT NOT NULL DEFAULT 'sage',
     archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+    position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -50,6 +51,18 @@ const habitColumns = db.pragma('table_info(habits)') as { name: string }[];
 if (!habitColumns.some((column) => column.name === 'archived')) {
   db.exec('ALTER TABLE habits ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
 }
+if (!habitColumns.some((column) => column.name === 'position')) {
+  db.exec('ALTER TABLE habits ADD COLUMN position INTEGER NOT NULL DEFAULT 0');
+  db.exec(`
+    UPDATE habits
+    SET position = (
+      SELECT COUNT(*)
+      FROM habits AS earlier
+      WHERE earlier.created_at < habits.created_at
+         OR (earlier.created_at = habits.created_at AND earlier.id < habits.id)
+    )
+  `);
+}
 
 export function listHabits(day: string): Habit[] {
   return db
@@ -58,7 +71,7 @@ export function listHabits(day: string): Habit[] {
        FROM habits h
        LEFT JOIN entries e ON e.habit_id = h.id AND e.day = ?
        WHERE h.archived = 0
-       ORDER BY h.created_at ASC`
+       ORDER BY h.position ASC, h.created_at ASC, h.id ASC`
     )
     .all(day)
     .map((row) => {
@@ -74,7 +87,7 @@ export function listArchivedHabits(day: string): Habit[] {
        FROM habits h
        LEFT JOIN entries e ON e.habit_id = h.id AND e.day = ?
        WHERE h.archived = 1
-       ORDER BY h.created_at ASC`
+       ORDER BY h.position ASC, h.created_at ASC, h.id ASC`
     )
     .all(day)
     .map((row) => {
@@ -92,8 +105,9 @@ export function createHabit(input: {
 }): Habit {
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO habits (id, name, description, type, target, color)
-     VALUES (@id, @name, @description, @type, @target, @color)`
+    `INSERT INTO habits (id, name, description, type, target, color, position)
+     VALUES (@id, @name, @description, @type, @target, @color,
+       COALESCE((SELECT MAX(position) + 1 FROM habits), 0))`
   ).run({ ...input, id });
   const habit = getHabit(id, todayKey());
   if (!habit) throw new Error('Created habit could not be loaded from the database.');
@@ -116,6 +130,45 @@ export function getHabit(id: string, day: string): Habit | undefined {
 
 export function setHabitArchived(id: string, archived: boolean): void {
   db.prepare('UPDATE habits SET archived = ? WHERE id = ?').run(archived ? 1 : 0, id);
+}
+
+export function reorderHabits(
+  scope: 'active' | 'archived' | 'all',
+  habitIds: string[]
+): string[] | undefined {
+  const reorder = db.transaction(() => {
+    const rows = db
+      .prepare('SELECT id, archived FROM habits ORDER BY position ASC, created_at ASC, id ASC')
+      .all() as { id: string; archived: number }[];
+    const scopedRows = scope === 'all'
+      ? rows
+      : rows.filter((row) => row.archived === (scope === 'archived' ? 1 : 0));
+    if (
+      habitIds.length !== scopedRows.length ||
+      new Set(habitIds).size !== habitIds.length ||
+      habitIds.some((id) => !scopedRows.some((row) => row.id === id))
+    ) {
+      return undefined;
+    }
+
+    const orderedIds = rows.map((row) => row.id);
+    if (scope === 'all') {
+      orderedIds.splice(0, orderedIds.length, ...habitIds);
+    } else {
+      let nextIndex = 0;
+      for (let index = 0; index < rows.length; index += 1) {
+        if (rows[index].archived === (scope === 'archived' ? 1 : 0)) {
+          orderedIds[index] = habitIds[nextIndex];
+          nextIndex += 1;
+        }
+      }
+    }
+
+    const updatePosition = db.prepare('UPDATE habits SET position = ? WHERE id = ?');
+    orderedIds.forEach((id, position) => updatePosition.run(position, id));
+    return orderedIds;
+  });
+  return reorder();
 }
 
 export function saveEntry(
@@ -169,7 +222,7 @@ export function getMonthlyHabitStats(month: string, today: string): MonthlyHabit
               e.day, e.value, e.completed
        FROM habits h
        LEFT JOIN entries e ON e.habit_id = h.id AND e.day BETWEEN ? AND ?
-       ORDER BY h.created_at ASC, e.day ASC`
+       ORDER BY h.position ASC, e.day ASC`
     )
     .all(start, end) as {
       id: string;
@@ -242,7 +295,7 @@ export function getJournalEntries(month: string, today: string): JournalEntry[] 
        FROM entries e
        JOIN habits h ON h.id = e.habit_id
        WHERE e.day BETWEEN ? AND ? AND trim(e.note) <> ''
-       ORDER BY e.day DESC, h.created_at ASC`
+       ORDER BY e.day DESC, h.position ASC, h.created_at ASC, h.id ASC`
     )
     .all(start, end)
     .map((row) => {

@@ -98,4 +98,5 @@ Copy `.env.example` to `.env` and set a password of at least 16 characters and a
 
 - Daily habits that can be checked off once per day.
 - Counted habits with configurable daily targets and increment/decrement controls.
-- Optional descriptions and per-day notes, daily check-ins, Focus and Journal views, an all-habits monthly overview, dated individual history, 30-day streak summaries, and an Archive with restore support.
+- Drag-and-drop habit ordering shared across the daily, monthly, and archive views.
+- Optional descriptions and per-day notes, daily check-ins, a Journal view, an all-habits monthly overview, dated individual history, 30-day streak summaries, and an Archive with restore support.

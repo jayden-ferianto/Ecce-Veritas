@@ -7,6 +7,7 @@
     CircleCheck,
     Flame,
     ChevronLeft,
+    GripVertical,
     Minus,
     Plus,
     Sparkles,
@@ -18,7 +19,7 @@
 
   export let data: {
     today: string;
-    view: 'today' | 'focus' | 'journal' | 'progress' | 'archive';
+    view: 'today' | 'journal' | 'progress' | 'archive';
     month: string;
     earliestMonth: string;
     habits: Habit[];
@@ -28,7 +29,10 @@
   };
   let habits = data.habits;
   let archivedHabits = data.archivedHabits;
+  let monthlyStats = data.monthlyStats;
   let busyHabitIds = new Set<string>();
+  let draggedHabitId: string | null = null;
+  let reorderingHabits = false;
   let showCreate = false;
   let saving = false;
   let errorMessage = '';
@@ -38,11 +42,9 @@
     habit.type === 'daily' ? habit.completed : habit.value >= habit.target
   ).length;
   $: overallProgress = habits.length ? Math.round((completedCount / habits.length) * 100) : 0;
-  $: visibleHabits = data.view === 'focus'
-    ? habits.filter((habit) => !isComplete(habit))
-    : habits;
-  $: successfulHabitDays = data.monthlyStats.reduce((total, habit) => total + habit.successfulDays, 0);
-  $: trackedHabitDays = data.monthlyStats.reduce((total, habit) => total + habit.trackedDays, 0);
+  $: visibleHabits = habits;
+  $: successfulHabitDays = monthlyStats.reduce((total, habit) => total + habit.successfulDays, 0);
+  $: trackedHabitDays = monthlyStats.reduce((total, habit) => total + habit.trackedDays, 0);
   $: monthProgress = trackedHabitDays
     ? Math.round((successfulHabitDays / trackedHabitDays) * 100)
     : 0;
@@ -51,14 +53,12 @@
   $: previousMonth = shiftMonth(data.month, -1);
   $: nextMonth = shiftMonth(data.month, 1);
   $: pageTitle = data.view === 'progress'
-    ? 'Your monthly progress'
+    ? 'Monthly Overview'
     : data.view === 'journal'
       ? 'Your journal'
       : data.view === 'archive'
         ? 'Your archive'
-        : data.view === 'focus'
-          ? 'One thing at a time'
-          : 'A little progress, every day';
+        : 'A little progress, every day';
   $: formattedDate = new Intl.DateTimeFormat('en', {
     weekday: 'long',
     month: 'long',
@@ -119,14 +119,104 @@
     }
   }
 
+  function reorderList<T extends { id: string }>(items: T[], sourceId: string, targetId: string) {
+    const reordered = [...items];
+    const sourceIndex = reordered.findIndex((item) => item.id === sourceId);
+    const targetIndex = reordered.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return null;
+    const [item] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, item);
+    return reordered;
+  }
+
+  function sortByHabitIds<T extends { id: string }>(items: T[], habitIds: string[]) {
+    const positions = new Map(habitIds.map((id, index) => [id, index]));
+    return [...items].sort((a, b) => (positions.get(a.id) ?? 0) - (positions.get(b.id) ?? 0));
+  }
+
+  function beginHabitDrag(event: DragEvent, habitId: string) {
+    if (reorderingHabits) {
+      event.preventDefault();
+      return;
+    }
+    draggedHabitId = habitId;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', habitId);
+    }
+  }
+
+  function endHabitDrag() {
+    draggedHabitId = null;
+  }
+
+  async function dropHabit(event: DragEvent, targetId: string, scope: 'active' | 'archived' | 'all') {
+    event.preventDefault();
+    const sourceId = draggedHabitId ?? event.dataTransfer?.getData('text/plain');
+    draggedHabitId = null;
+    if (sourceId && sourceId !== targetId) await changeHabitOrder(scope, sourceId, targetId);
+  }
+
+  async function changeHabitOrder(
+    scope: 'active' | 'archived' | 'all',
+    sourceId: string,
+    targetId: string
+  ) {
+    if (reorderingHabits) return;
+    const previousHabits = habits;
+    const previousArchivedHabits = archivedHabits;
+    const previousMonthlyStats = monthlyStats;
+    let reorderedIds: string[];
+    if (scope === 'active') {
+      const reordered = reorderList(habits, sourceId, targetId);
+      if (!reordered) return;
+      habits = reordered;
+      reorderedIds = reordered.map((habit) => habit.id);
+    } else if (scope === 'archived') {
+      const reordered = reorderList(archivedHabits, sourceId, targetId);
+      if (!reordered) return;
+      archivedHabits = reordered;
+      reorderedIds = reordered.map((habit) => habit.id);
+    } else {
+      const reordered = reorderList(monthlyStats, sourceId, targetId);
+      if (!reordered) return;
+      monthlyStats = reordered;
+      reorderedIds = reordered.map((habit) => habit.id);
+    }
+
+    reorderingHabits = true;
+    errorMessage = '';
+    try {
+      const response = await fetch('/api/habits/reorder', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scope, habitIds: reorderedIds })
+      });
+      const result: { habitIds?: string[]; error?: string } = await response.json();
+      if (!response.ok || !result.habitIds) {
+        habits = previousHabits;
+        archivedHabits = previousArchivedHabits;
+        monthlyStats = previousMonthlyStats;
+        errorMessage = result.error ?? 'Could not reorder your habits. Please try again.';
+        return;
+      }
+      habits = sortByHabitIds(habits, result.habitIds);
+      archivedHabits = sortByHabitIds(archivedHabits, result.habitIds);
+      monthlyStats = sortByHabitIds(monthlyStats, result.habitIds);
+    } catch {
+      habits = previousHabits;
+      archivedHabits = previousArchivedHabits;
+      monthlyStats = previousMonthlyStats;
+      errorMessage = 'Could not connect to the server. Please try again.';
+    } finally {
+      reorderingHabits = false;
+    }
+  }
+
   function progress(habit: Habit) {
     return habit.type === 'daily'
       ? habit.completed ? 100 : 0
       : Math.min(100, Math.round((habit.value / habit.target) * 100));
-  }
-
-  function isComplete(habit: Habit) {
-    return habit.type === 'daily' ? habit.completed : habit.value >= habit.target;
   }
 
   function shiftMonth(month: string, offset: number) {
@@ -223,15 +313,13 @@
           </div>
           <h1>{pageTitle}</h1>
           <p class="welcome-copy">
-            {data.view === 'focus'
-              ? 'Here are the habits still waiting for you today.'
-              : data.view === 'progress'
-                ? 'A month at a time, all your habits in one place.'
-                : data.view === 'journal'
-                  ? 'Your notes and reflections, gathered by day.'
-                  : data.view === 'archive'
-                    ? 'Past habits are kept here until you want them back.'
-                    : "You don't have to be perfect. Just keep showing up."}
+            {data.view === 'progress'
+              ? 'A month at a time, all your habits in one place.'
+              : data.view === 'journal'
+                ? 'Your notes and reflections, gathered by day.'
+                : data.view === 'archive'
+                  ? 'Past habits are kept here until you want them back.'
+                  : "You don't have to be perfect. Just keep showing up."}
           </p>
         </div>
         <button class="primary-button add-button" on:click={() => (showCreate = true)}>
@@ -243,7 +331,7 @@
         <div class="error-banner" role="alert">{errorMessage}</div>
       {/if}
 
-      {#if data.view === 'today' || data.view === 'focus'}
+      {#if data.view === 'today'}
       <section class="overview-card" aria-label="Today's overview">
         <div class="overview-main">
           <div class="overview-icon"><CircleCheck size={21} /></div>
@@ -282,7 +370,19 @@
       {#if visibleHabits.length}
         <div class="habit-list">
           {#each visibleHabits as habit (habit.id)}
-            <article class="habit-card">
+            <article
+              class:dragging={draggedHabitId === habit.id}
+              class="habit-card"
+              on:dragover={(event) => event.preventDefault()}
+              on:drop={(event) => dropHabit(event, habit.id, 'active')}
+            >
+              <span
+                class="drag-handle"
+                draggable={!reorderingHabits}
+                aria-hidden="true"
+                on:dragstart|stopPropagation={(event) => beginHabitDrag(event, habit.id)}
+                on:dragend={endHabitDrag}
+              ><GripVertical size={17} /></span>
               <div class={`habit-symbol ${habit.color}`}>
                 {#if habit.type === 'daily'}<Check size={20} />{:else}<Flame size={20} />{/if}
               </div>
@@ -324,13 +424,6 @@
             </article>
           {/each}
         </div>
-      {:else if data.view === 'focus' && habits.length}
-        <div class="empty-state">
-          <div class="empty-illustration"><Check size={30} /></div>
-          <h3>You're all caught up</h3>
-          <p>Every active habit has reached its goal for today.</p>
-          <a class="secondary-button" href="/">View all habits</a>
-        </div>
       {:else}
         <div class="empty-state">
           <div class="empty-illustration"><Sparkles size={30} strokeWidth={1.5} /></div>
@@ -345,7 +438,7 @@
       {/if}
       {/if}
 
-      {#if data.view === 'today' || data.view === 'progress'}
+      {#if data.view === 'progress'}
         <section class="monthly-section" id="monthly-overview">
           <div class="section-heading monthly-heading">
             <div><h2>Monthly overview</h2><p>Every habit, together, for {monthLabel}.</p></div>
@@ -366,29 +459,43 @@
           <div class="monthly-summary">
             <div><strong>{monthProgress}%</strong><span>overall completion</span></div>
             <div><strong>{successfulHabitDays}<small>/{trackedHabitDays}</small></strong><span>habit-days reached</span></div>
-            <div><strong>{data.monthlyStats.length}</strong><span>habits in your space</span></div>
+            <div><strong>{monthlyStats.length}</strong><span>habits in your space</span></div>
           </div>
-          {#if data.monthlyStats.length}
+          {#if monthlyStats.length}
             <div class="monthly-habit-list">
-              {#each data.monthlyStats as stat (stat.id)}
-                <a
+              {#each monthlyStats as stat (stat.id)}
+                <div
+                  class:dragging={draggedHabitId === stat.id}
                   class="monthly-habit-row"
-                  href={stat.trackedDays ? `/habits/${stat.id}?month=${data.month}` : `/habits/${stat.id}`}
+                  on:dragover={(event) => event.preventDefault()}
+                  on:drop={(event) => dropHabit(event, stat.id, 'all')}
                 >
-                  <span class={`monthly-habit-dot ${stat.color}`}></span>
-                  <span class="monthly-habit-name">{stat.name}{#if stat.archived}<small>Archived</small>{/if}</span>
-                  {#if stat.trackedDays}
-                    <span class="monthly-habit-result">
-                      {stat.successfulDays}<small>/{stat.trackedDays} days</small>
-                      {#if stat.type === 'count'}<small>{stat.totalCount} logged</small>{/if}
-                    </span>
-                  {:else}
-                    <span class="monthly-habit-result not-started">Not started<small>this month</small></span>
-                  {/if}
-                  <span class="monthly-habit-track"><span class={stat.color} style={`width: ${stat.completionRate}%`}></span></span>
-                  <strong class="monthly-habit-rate">{stat.trackedDays ? `${stat.completionRate}%` : '—'}</strong>
-                  <ChevronRight size={16} />
-                </a>
+                  <span
+                    class="drag-handle monthly-drag-handle"
+                    draggable={!reorderingHabits}
+                    aria-hidden="true"
+                    on:dragstart|stopPropagation={(event) => beginHabitDrag(event, stat.id)}
+                    on:dragend={endHabitDrag}
+                  ><GripVertical size={16} /></span>
+                  <a
+                    class="monthly-habit-link"
+                    href={stat.trackedDays ? `/habits/${stat.id}?month=${data.month}` : `/habits/${stat.id}`}
+                  >
+                    <span class={`monthly-habit-dot ${stat.color}`}></span>
+                    <span class="monthly-habit-name">{stat.name}{#if stat.archived}<small>Archived</small>{/if}</span>
+                    {#if stat.trackedDays}
+                      <span class="monthly-habit-result">
+                        {stat.successfulDays}<small>/{stat.trackedDays} days</small>
+                        {#if stat.type === 'count'}<small>{stat.totalCount} logged</small>{/if}
+                      </span>
+                    {:else}
+                      <span class="monthly-habit-result not-started">Not started<small>this month</small></span>
+                    {/if}
+                    <span class="monthly-habit-track"><span class={stat.color} style={`width: ${stat.completionRate}%`}></span></span>
+                    <strong class="monthly-habit-rate">{stat.trackedDays ? `${stat.completionRate}%` : '—'}</strong>
+                    <ChevronRight size={16} />
+                  </a>
+                </div>
               {/each}
             </div>
           {:else}
@@ -444,7 +551,19 @@
           {#if archivedHabits.length}
             <div class="habit-list">
               {#each archivedHabits as habit (habit.id)}
-                <article class="habit-card">
+                <article
+                  class:dragging={draggedHabitId === habit.id}
+                  class="habit-card"
+                  on:dragover|preventDefault
+                  on:drop={(event) => dropHabit(event, habit.id, 'archived')}
+                >
+                  <span
+                    class="drag-handle"
+                    draggable={!reorderingHabits}
+                    aria-hidden="true"
+                    on:dragstart|stopPropagation={(event) => beginHabitDrag(event, habit.id)}
+                    on:dragend={endHabitDrag}
+                  ><GripVertical size={17} /></span>
                   <div class={`habit-symbol ${habit.color}`}>{#if habit.type === 'daily'}<Check size={20} />{:else}<Flame size={20} />{/if}</div>
                   <div class="habit-info">
                     <a class="habit-name" href={`/habits/${habit.id}`}>{habit.name}<ChevronRight size={15} /></a>

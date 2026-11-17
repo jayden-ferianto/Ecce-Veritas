@@ -7,6 +7,7 @@ export interface Habit {
   type: HabitType;
   target: number;
   color: string;
+  position: number;
   created_at: string;
   value: number;
   completed: boolean;

@@ -17,8 +17,7 @@ export const load: PageServerLoad = ({ url }) => {
   }
 
   const requestedView = url.searchParams.get('view');
-  const view = requestedView === 'focus' ||
-    requestedView === 'journal' ||
+  const view = requestedView === 'journal' ||
     requestedView === 'progress' ||
     requestedView === 'archive'
     ? requestedView

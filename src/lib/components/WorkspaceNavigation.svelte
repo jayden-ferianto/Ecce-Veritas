@@ -1,16 +1,15 @@
 <script lang="ts">
-  import { Archive, BookOpenText, Compass, Target, TrendingUp } from 'lucide-svelte';
+  import { Archive, BookOpenText, Target, TrendingUp } from 'lucide-svelte';
 
-  export let view: 'today' | 'focus' | 'journal' | 'progress' | 'archive';
+  export let view: 'today' | 'journal' | 'progress' | 'archive';
   export let month: string;
   export let progress: number;
   export let mobileOnly = false;
 
   const links = [
     { label: 'Today', view: 'today', href: '/', icon: Target },
-    { label: 'Focus', view: 'focus', href: '/?view=focus', icon: Compass },
     { label: 'Journal', view: 'journal', href: '', icon: BookOpenText },
-    { label: 'Progress', view: 'progress', href: '', icon: TrendingUp },
+    { label: 'Monthly Overview', view: 'progress', href: '', icon: TrendingUp },
     { label: 'Archive', view: 'archive', href: '/?view=archive', icon: Archive }
   ];
 

@@ -93,6 +93,10 @@ h1 { margin: 12px 0 9px; color: #25372b; font-size: clamp(29px, 3.1vw, 37px); le
 .habit-list { display: flex; flex-direction: column; gap: 9px; }
 .habit-card { display: flex; align-items: center; gap: 14px; min-height: 83px; padding: 13px 15px; border: 1px solid #e9ece6; border-radius: 11px; background: #fff; transition: border-color .15s, box-shadow .15s; }
 .habit-card:hover { border-color: #d9e3d8; box-shadow: 0 4px 14px #2b48320a; }
+.drag-handle { flex: 0 0 auto; display: grid; place-items: center; padding: 3px; border: 0; border-radius: 5px; background: transparent; color: #a3ada2; cursor: grab; }
+.drag-handle:hover, .drag-handle:focus-visible { color: #5d8063; background: #f0f4ee; outline: none; }
+.drag-handle:active { cursor: grabbing; }
+.dragging { opacity: .5; }
 .habit-symbol, .detail-symbol { width: 39px; height: 39px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 12px; }
 .sage { --habit-color: #568269; --habit-bg: #edf4ed; --habit-fill: #83aa83; }
 .peach { --habit-color: #c17e62; --habit-bg: #fbf0e9; --habit-fill: #d9a286; }
@@ -240,7 +244,8 @@ h1 { margin: 12px 0 9px; color: #25372b; font-size: clamp(29px, 3.1vw, 37px); le
 .monthly-summary strong small { color: #a0a99f; font-size: 12px; font-weight: 500; }
 .monthly-summary span { color: #929b90; font-size: 9px; }
 .monthly-habit-list, .journal-list { display: flex; flex-direction: column; gap: 8px; }
-.monthly-habit-row { display: grid; grid-template-columns: 10px minmax(100px, 1fr) auto minmax(70px, .7fr) 38px 16px; align-items: center; gap: 10px; min-height: 57px; padding: 10px 13px; border: 1px solid #e9ece6; border-radius: 9px; background: #fff; transition: border-color .15s, transform .15s; }
+.monthly-habit-row { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 57px; padding: 10px 13px; border: 1px solid #e9ece6; border-radius: 9px; background: #fff; transition: border-color .15s, transform .15s; }
+.monthly-habit-link { display: grid; grid-template-columns: 10px minmax(100px, 1fr) auto minmax(70px, .7fr) 38px 16px; align-items: center; gap: 10px; min-width: 0; color: inherit; }
 .monthly-habit-row:hover { border-color: #bfcebd; transform: translateY(-1px); }
 .monthly-habit-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--habit-fill); }
 .monthly-habit-name { display: flex; flex-direction: column; gap: 3px; overflow: hidden; color: #435745; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
@@ -250,7 +255,7 @@ h1 { margin: 12px 0 9px; color: #25372b; font-size: clamp(29px, 3.1vw, 37px); le
 .monthly-habit-track { height: 5px; overflow: hidden; border-radius: 8px; background: #f0f2ed; }
 .monthly-habit-track span { display: block; height: 100%; border-radius: inherit; background: var(--habit-fill); }
 .monthly-habit-rate { color: #657f68; font-size: 10px; text-align: right; }
-.monthly-habit-row > svg { color: #aab2a9; }
+.monthly-habit-link > svg { color: #aab2a9; }
 .monthly-empty { padding: 25px; border: 1px dashed #dfe6dc; border-radius: 10px; color: #929b91; background: #fff; font-size: 11px; text-align: center; }
 .journal-entry { padding: 15px 17px; border: 1px solid #e9ece6; border-radius: 10px; background: #fff; }
 .journal-entry-date { margin-bottom: 8px; color: #8e998e; font-size: 9px; }
@@ -324,7 +329,8 @@ h1 { margin: 12px 0 9px; color: #25372b; font-size: clamp(29px, 3.1vw, 37px); le
   .monthly-summary > div { padding: 12px 9px; }
   .monthly-summary strong { font-size: 17px; }
   .monthly-summary span { font-size: 8px; }
-  .monthly-habit-row { grid-template-columns: 9px minmax(70px, 1fr) auto minmax(38px, .5fr) 32px 13px; gap: 6px; padding: 9px; }
+  .monthly-habit-row { grid-template-columns: 14px minmax(0, 1fr); gap: 6px; padding: 9px; }
+  .monthly-habit-link { grid-template-columns: 9px minmax(70px, 1fr) auto minmax(38px, .5fr) 32px 13px; gap: 6px; }
   .monthly-habit-name { font-size: 9px; }
   .monthly-habit-result { font-size: 10px; }
   .detail-actions { margin-left: 0; }
@@ -484,7 +490,7 @@ h1 { color: #e7e2d8; }
 .monthly-summary strong small, .monthly-summary span, .monthly-habit-result small, .monthly-habit-name small, .journal-entry-date { color: #a5a7ae; }
 .monthly-habit-track { background: #30343e; }
 .monthly-habit-rate { color: #c6b184; }
-.monthly-habit-row > svg { color: #9da1a7; }
+.monthly-habit-link > svg { color: #9da1a7; }
 .monthly-empty, .journal-entry p { color: #a5a7ae; }
 .archive-link { color: #c9ba99; }
 .archive-link:hover { color: #e0d1aa; }
