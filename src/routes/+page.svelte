@@ -1,32 +1,31 @@
 <script lang="ts">
   import {
-    Archive,
-    BookOpenText,
     Check,
     ChevronRight,
     CircleCheck,
-    Compass,
     Flame,
+    ChevronLeft,
     Minus,
     Plus,
     Sparkles,
-    Target,
-    TrendingUp,
     X
   } from 'lucide-svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
-  import type { Habit } from '$lib/types';
+  import WorkspaceNavigation from '$lib/components/WorkspaceNavigation.svelte';
+  import type { Habit, JournalEntry, MonthlyHabitStat } from '$lib/types';
 
-  const sidebarSuggestions = [
-    { label: 'Today', icon: Target, active: true },
-    { label: 'Focus', icon: Compass },
-    { label: 'Journal', icon: BookOpenText },
-    { label: 'Progress', icon: TrendingUp },
-    { label: 'Archive', icon: Archive }
-  ];
-
-  export let data: { today: string; habits: Habit[] };
+  export let data: {
+    today: string;
+    view: 'today' | 'focus' | 'journal' | 'progress' | 'archive';
+    month: string;
+    earliestMonth: string;
+    habits: Habit[];
+    archivedHabits: Habit[];
+    monthlyStats: MonthlyHabitStat[];
+    journalEntries: JournalEntry[];
+  };
   let habits = data.habits;
+  let archivedHabits = data.archivedHabits;
   let busyHabitIds = new Set<string>();
   let showCreate = false;
   let saving = false;
@@ -37,6 +36,27 @@
     habit.type === 'daily' ? habit.completed : habit.value >= habit.target
   ).length;
   $: overallProgress = habits.length ? Math.round((completedCount / habits.length) * 100) : 0;
+  $: visibleHabits = data.view === 'focus'
+    ? habits.filter((habit) => !isComplete(habit))
+    : habits;
+  $: successfulHabitDays = data.monthlyStats.reduce((total, habit) => total + habit.successfulDays, 0);
+  $: trackedHabitDays = data.monthlyStats.reduce((total, habit) => total + habit.trackedDays, 0);
+  $: monthProgress = trackedHabitDays
+    ? Math.round((successfulHabitDays / trackedHabitDays) * 100)
+    : 0;
+  $: monthLabel = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(`${data.month}-01T12:00:00Z`));
+  $: previousMonth = shiftMonth(data.month, -1);
+  $: nextMonth = shiftMonth(data.month, 1);
+  $: pageTitle = data.view === 'progress'
+    ? 'Your monthly progress'
+    : data.view === 'journal'
+      ? 'Your journal'
+      : data.view === 'archive'
+        ? 'Your archive'
+        : data.view === 'focus'
+          ? 'One thing at a time'
+          : 'A little progress, every day';
   $: formattedDate = new Intl.DateTimeFormat('en', {
     weekday: 'long',
     month: 'long',
@@ -102,10 +122,57 @@
       ? habit.completed ? 100 : 0
       : Math.min(100, Math.round((habit.value / habit.target) * 100));
   }
+
+  function isComplete(habit: Habit) {
+    return habit.type === 'daily' ? habit.completed : habit.value >= habit.target;
+  }
+
+  function shiftMonth(month: string, offset: number) {
+    const date = new Date(`${month}-01T12:00:00Z`);
+    date.setUTCMonth(date.getUTCMonth() + offset);
+    return date.toISOString().slice(0, 7);
+  }
+
+  function monthUrl(month: string) {
+    return `/?view=${data.view === 'journal' ? 'journal' : 'progress'}&month=${month}`;
+  }
+
+  function formatJournalDate(date: string) {
+    return new Intl.DateTimeFormat('en', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC'
+    }).format(new Date(`${date}T12:00:00Z`));
+  }
+
+  async function restoreHabit(habit: Habit) {
+    if (busyHabitIds.has(habit.id)) return;
+    busyHabitIds = new Set(busyHabitIds).add(habit.id);
+    errorMessage = '';
+    try {
+      const response = await fetch(`/api/habits/${habit.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ archived: false })
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        errorMessage = result.error ?? 'Could not restore this habit.';
+        return;
+      }
+      archivedHabits = archivedHabits.filter((item) => item.id !== habit.id);
+    } catch {
+      errorMessage = 'Could not connect to the server. Please try again.';
+    } finally {
+      busyHabitIds = new Set(busyHabitIds);
+      busyHabitIds.delete(habit.id);
+    }
+  }
 </script>
 
 <svelte:head>
-  <title>Today · Ecce Veritas</title>
+  <title>{pageTitle} · Ecce Veritas</title>
   <meta name="description" content="A calm, personal space to grow your daily habits." />
 </svelte:head>
 
@@ -117,28 +184,7 @@
     </a>
 
     <div class="side-label">YOUR SPACE</div>
-    <nav class="sidebar-nav" aria-label="Main navigation">
-      {#each sidebarSuggestions as link}
-        <button type="button" class:active={link.active} class="nav-link" aria-current={link.active ? 'page' : undefined}>
-          <svelte:component this={link.icon} size={18} />
-          <span>{link.label}</span>
-          {#if link.label === 'Progress'}
-            <span class="nav-meta">4</span>
-          {/if}
-        </button>
-      {/each}
-    </nav>
-
-    <div class="sidebar-divider"></div>
-    <div class="side-label secondary-label">SUGGESTIONS</div>
-    <button type="button" class="nav-link nav-link-secondary">
-      <Sparkles size={17} />
-      <span>Habit ideas</span>
-    </button>
-    <button type="button" class="nav-link nav-link-secondary">
-      <BookOpenText size={17} />
-      <span>Reflection</span>
-    </button>
+    <WorkspaceNavigation view={data.view} month={data.month} progress={monthProgress} />
 
     <div class="sidebar-note">
       <span class="note-icon"><Sparkles size={16} /></span>
@@ -152,6 +198,8 @@
     </div>
   </aside>
 
+  <WorkspaceNavigation mobileOnly view={data.view} month={data.month} progress={monthProgress} />
+
   <main class="main-content">
     <header class="topbar">
       <div class="mobile-brand"><span class="brand-mark"><Sparkles size={17} /></span> Ecce Veritas</div>
@@ -162,9 +210,27 @@
     <section class="page-content">
       <div class="welcome-row">
         <div>
-          <div class="eyebrow">YOUR DAILY CHECK-IN</div>
-          <h1>A little progress,<br class="mobile-break" /> every day <span class="wave">✳</span></h1>
-          <p class="welcome-copy">You don't have to be perfect. Just keep showing up.</p>
+          <div class="eyebrow">
+            {data.view === 'progress'
+              ? 'YOUR HABIT HISTORY'
+              : data.view === 'journal'
+                ? 'YOUR DAILY NOTES'
+                : data.view === 'archive'
+                  ? 'PAST HABITS'
+                  : 'YOUR DAILY CHECK-IN'}
+          </div>
+          <h1>{pageTitle}</h1>
+          <p class="welcome-copy">
+            {data.view === 'focus'
+              ? 'Here are the habits still waiting for you today.'
+              : data.view === 'progress'
+                ? 'A month at a time, all your habits in one place.'
+                : data.view === 'journal'
+                  ? 'Your notes and reflections, gathered by day.'
+                  : data.view === 'archive'
+                    ? 'Past habits are kept here until you want them back.'
+                    : "You don't have to be perfect. Just keep showing up."}
+          </p>
         </div>
         <button class="primary-button add-button" on:click={() => (showCreate = true)}>
           <Plus size={18} strokeWidth={2.5} /><span>New habit</span>
@@ -175,6 +241,7 @@
         <div class="error-banner" role="alert">{errorMessage}</div>
       {/if}
 
+      {#if data.view === 'today' || data.view === 'focus'}
       <section class="overview-card" aria-label="Today's overview">
         <div class="overview-main">
           <div class="overview-icon"><CircleCheck size={21} /></div>
@@ -210,9 +277,9 @@
         <div class="today-tag"><span></span> TODAY</div>
       </div>
 
-      {#if habits.length}
+      {#if visibleHabits.length}
         <div class="habit-list">
-          {#each habits as habit (habit.id)}
+          {#each visibleHabits as habit (habit.id)}
             <article class="habit-card">
               <div class={`habit-symbol ${habit.color}`}>
                 {#if habit.type === 'daily'}<Check size={20} />{:else}<Flame size={20} />{/if}
@@ -255,6 +322,13 @@
             </article>
           {/each}
         </div>
+      {:else if data.view === 'focus' && habits.length}
+        <div class="empty-state">
+          <div class="empty-illustration"><Check size={30} /></div>
+          <h3>You're all caught up</h3>
+          <p>Every active habit has reached its goal for today.</p>
+          <a class="secondary-button" href="/">View all habits</a>
+        </div>
       {:else}
         <div class="empty-state">
           <div class="empty-illustration"><Sparkles size={30} strokeWidth={1.5} /></div>
@@ -267,7 +341,131 @@
       {#if habits.length}
         <button class="add-another" on:click={() => (showCreate = true)}><span><Plus size={17} /></span> Add another habit</button>
       {/if}
-      <footer class="page-footer"><span>One day at a time</span><span>✳</span></footer>
+      {/if}
+
+      {#if data.view === 'today' || data.view === 'progress'}
+        <section class="monthly-section" id="monthly-overview">
+          <div class="section-heading monthly-heading">
+            <div><h2>Monthly overview</h2><p>Every habit, together, for {monthLabel}.</p></div>
+            <div class="history-month-nav" aria-label="Choose month">
+              {#if data.month > data.earliestMonth}
+                <a class="history-month-button" href={monthUrl(previousMonth)} aria-label="Previous month"><ChevronLeft size={17} /></a>
+              {:else}
+                <span class="history-month-button disabled" aria-hidden="true"><ChevronLeft size={17} /></span>
+              {/if}
+              <span class="month-tag">{monthLabel}</span>
+              {#if data.month < data.today.slice(0, 7)}
+                <a class="history-month-button" href={monthUrl(nextMonth)} aria-label="Next month"><ChevronRight size={17} /></a>
+              {:else}
+                <span class="history-month-button disabled" aria-hidden="true"><ChevronRight size={17} /></span>
+              {/if}
+            </div>
+          </div>
+          <div class="monthly-summary">
+            <div><strong>{monthProgress}%</strong><span>overall completion</span></div>
+            <div><strong>{successfulHabitDays}<small>/{trackedHabitDays}</small></strong><span>habit-days reached</span></div>
+            <div><strong>{data.monthlyStats.length}</strong><span>habits in your space</span></div>
+          </div>
+          {#if data.monthlyStats.length}
+            <div class="monthly-habit-list">
+              {#each data.monthlyStats as stat (stat.id)}
+                <a
+                  class="monthly-habit-row"
+                  href={stat.trackedDays ? `/habits/${stat.id}?month=${data.month}` : `/habits/${stat.id}`}
+                >
+                  <span class={`monthly-habit-dot ${stat.color}`}></span>
+                  <span class="monthly-habit-name">{stat.name}{#if stat.archived}<small>Archived</small>{/if}</span>
+                  {#if stat.trackedDays}
+                    <span class="monthly-habit-result">
+                      {stat.successfulDays}<small>/{stat.trackedDays} days</small>
+                      {#if stat.type === 'count'}<small>{stat.totalCount} logged</small>{/if}
+                    </span>
+                  {:else}
+                    <span class="monthly-habit-result not-started">Not started<small>this month</small></span>
+                  {/if}
+                  <span class="monthly-habit-track"><span class={stat.color} style={`width: ${stat.completionRate}%`}></span></span>
+                  <strong class="monthly-habit-rate">{stat.trackedDays ? `${stat.completionRate}%` : '—'}</strong>
+                  <ChevronRight size={16} />
+                </a>
+              {/each}
+            </div>
+          {:else}
+            <div class="monthly-empty">Add a habit to see your monthly progress here.</div>
+          {/if}
+        </section>
+      {/if}
+
+      {#if data.view === 'journal'}
+        <section class="journal-section">
+          <div class="section-heading monthly-heading">
+            <div><h2>Reflections</h2><p>Notes saved from your daily habit check-ins.</p></div>
+            <div class="history-month-nav" aria-label="Choose journal month">
+              {#if data.month > data.earliestMonth}
+                <a class="history-month-button" href={monthUrl(previousMonth)} aria-label="Previous month"><ChevronLeft size={17} /></a>
+              {:else}
+                <span class="history-month-button disabled" aria-hidden="true"><ChevronLeft size={17} /></span>
+              {/if}
+              <span class="month-tag">{monthLabel}</span>
+              {#if data.month < data.today.slice(0, 7)}
+                <a class="history-month-button" href={monthUrl(nextMonth)} aria-label="Next month"><ChevronRight size={17} /></a>
+              {:else}
+                <span class="history-month-button disabled" aria-hidden="true"><ChevronRight size={17} /></span>
+              {/if}
+            </div>
+          </div>
+          {#if data.journalEntries.length}
+            <div class="journal-list">
+              {#each data.journalEntries as entry}
+                <article class="journal-entry">
+                  <div class="journal-entry-date">{formatJournalDate(entry.date)}</div>
+                  <a class="journal-entry-habit" href={`/habits/${entry.habitId}?month=${data.month}`}>
+                    <span class={`monthly-habit-dot ${entry.habitColor}`}></span>{entry.habitName}
+                  </a>
+                  <p>{entry.note}</p>
+                </article>
+              {/each}
+            </div>
+          {:else}
+            <div class="empty-state">
+              <div class="empty-illustration"><BookOpenText size={30} /></div>
+              <h3>No reflections this month</h3>
+              <p>Open a habit's history, select a day, and add a note to see it here.</p>
+              {#if habits.length}<a class="secondary-button" href={`/habits/${habits[0].id}`}>Open a habit</a>{/if}
+            </div>
+          {/if}
+        </section>
+      {/if}
+
+      {#if data.view === 'archive'}
+        <section class="archive-section">
+          <div class="section-heading"><div><h2>Archived habits <span class="habit-count">{archivedHabits.length}</span></h2><p>Restore one whenever you're ready to start again.</p></div></div>
+          {#if archivedHabits.length}
+            <div class="habit-list">
+              {#each archivedHabits as habit (habit.id)}
+                <article class="habit-card">
+                  <div class={`habit-symbol ${habit.color}`}>{#if habit.type === 'daily'}<Check size={20} />{:else}<Flame size={20} />{/if}</div>
+                  <div class="habit-info">
+                    <a class="habit-name" href={`/habits/${habit.id}`}>{habit.name}<ChevronRight size={15} /></a>
+                    <p>{habit.description || (habit.type === 'daily' ? 'Daily check-in' : `Build up to ${habit.target} times a day`)}</p>
+                  </div>
+                  <button class="secondary-button restore-button" disabled={busyHabitIds.has(habit.id)} on:click={() => restoreHabit(habit)}>
+                    {busyHabitIds.has(habit.id) ? 'Restoring…' : 'Restore'}
+                  </button>
+                </article>
+              {/each}
+            </div>
+          {:else}
+            <div class="empty-state">
+              <div class="empty-illustration"><Archive size={30} /></div>
+              <h3>Your archive is empty</h3>
+              <p>Habits you archive will be kept here with their history.</p>
+              {#if habits.length}<a class="secondary-button" href={`/habits/${habits[0].id}`}>View a habit</a>{/if}
+            </div>
+          {/if}
+        </section>
+      {/if}
+
+      <footer class="page-footer"><span>One day at a time</span></footer>
     </section>
   </main>
 </div>

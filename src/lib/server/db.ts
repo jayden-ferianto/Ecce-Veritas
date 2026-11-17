@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { Habit, HabitDay, HabitType } from '$lib/types';
+import type { Habit, HabitDay, HabitType, JournalEntry, MonthlyHabitStat } from '$lib/types';
 
 const databasePath = resolve(process.env.DATABASE_PATH ?? './data/habits.db');
 mkdirSync(dirname(databasePath), { recursive: true });
@@ -11,8 +11,9 @@ const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-interface HabitRow extends Omit<Habit, 'completed'> {
+interface HabitRow extends Omit<Habit, 'completed' | 'archived'> {
   completed: number;
+  archived: number;
 }
 
 interface HabitHistoryRow extends Omit<HabitDay, 'completed'> {
@@ -27,6 +28,7 @@ db.exec(`
     type TEXT NOT NULL CHECK (type IN ('daily', 'count')),
     target INTEGER NOT NULL DEFAULT 1 CHECK (target >= 1),
     color TEXT NOT NULL DEFAULT 'sage',
+    archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -44,6 +46,10 @@ const entryColumns = db.pragma('table_info(entries)') as { name: string }[];
 if (!entryColumns.some((column) => column.name === 'note')) {
   db.exec("ALTER TABLE entries ADD COLUMN note TEXT NOT NULL DEFAULT ''");
 }
+const habitColumns = db.pragma('table_info(habits)') as { name: string }[];
+if (!habitColumns.some((column) => column.name === 'archived')) {
+  db.exec('ALTER TABLE habits ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
+}
 
 export function listHabits(day: string): Habit[] {
   return db
@@ -51,12 +57,29 @@ export function listHabits(day: string): Habit[] {
       `SELECT h.*, COALESCE(e.value, 0) AS value, COALESCE(e.completed, 0) AS completed
        FROM habits h
        LEFT JOIN entries e ON e.habit_id = h.id AND e.day = ?
+       WHERE h.archived = 0
        ORDER BY h.created_at ASC`
     )
     .all(day)
     .map((row) => {
       const habit = row as HabitRow;
-      return { ...habit, completed: Boolean(habit.completed) };
+      return { ...habit, completed: Boolean(habit.completed), archived: Boolean(habit.archived) };
+    });
+}
+
+export function listArchivedHabits(day: string): Habit[] {
+  return db
+    .prepare(
+      `SELECT h.*, COALESCE(e.value, 0) AS value, COALESCE(e.completed, 0) AS completed
+       FROM habits h
+       LEFT JOIN entries e ON e.habit_id = h.id AND e.day = ?
+       WHERE h.archived = 1
+       ORDER BY h.created_at ASC`
+    )
+    .all(day)
+    .map((row) => {
+      const habit = row as HabitRow;
+      return { ...habit, completed: Boolean(habit.completed), archived: Boolean(habit.archived) };
     });
 }
 
@@ -86,7 +109,13 @@ export function getHabit(id: string, day: string): Habit | undefined {
        WHERE h.id = ?`
     )
     .get(day, id) as HabitRow | undefined;
-  return row ? { ...row, completed: Boolean(row.completed) } : undefined;
+  return row
+    ? { ...row, completed: Boolean(row.completed), archived: Boolean(row.archived) }
+    : undefined;
+}
+
+export function setHabitArchived(id: string, archived: boolean): void {
+  db.prepare('UPDATE habits SET archived = ? WHERE id = ?').run(archived ? 1 : 0, id);
 }
 
 export function saveEntry(
@@ -122,6 +151,102 @@ export function getHabitHistory(id: string, start: string, end: string): HabitDa
     .all(id, start, end)
     .map((row) => {
       const entry = row as HabitHistoryRow;
+      return { ...entry, completed: Boolean(entry.completed) };
+    });
+}
+
+export function getMonthlyHabitStats(month: string, today: string): MonthlyHabitStat[] {
+  const start = `${month}-01`;
+  const currentMonth = today.slice(0, 7);
+  const end = month === currentMonth
+    ? today
+    : new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0))
+        .toISOString()
+        .slice(0, 10);
+  const rows = db
+    .prepare(
+      `SELECT h.id, h.name, h.color, h.type, h.target, h.archived, h.created_at,
+              e.day, e.value, e.completed
+       FROM habits h
+       LEFT JOIN entries e ON e.habit_id = h.id AND e.day BETWEEN ? AND ?
+       ORDER BY h.created_at ASC, e.day ASC`
+    )
+    .all(start, end) as {
+      id: string;
+      name: string;
+      color: string;
+      type: HabitType;
+      target: number;
+      archived: number;
+      created_at: string;
+      day: string | null;
+      value: number | null;
+      completed: number | null;
+    }[];
+  const byHabit = new Map<string, MonthlyHabitStat>();
+  const createdDays = new Map<string, string>();
+
+  for (const row of rows) {
+    let stat = byHabit.get(row.id);
+    if (!stat) {
+      const createdDay = row.created_at.slice(0, 10);
+      createdDays.set(row.id, createdDay);
+      const trackedStart = createdDay > start ? createdDay : start;
+      const trackedDays = trackedStart > end
+        ? 0
+        : Math.floor((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${trackedStart}T00:00:00Z`)) / 86400000) + 1;
+      stat = {
+        id: row.id,
+        name: row.name,
+        color: row.color,
+        type: row.type,
+        target: row.target,
+        archived: Boolean(row.archived),
+        createdAt: row.created_at,
+        successfulDays: 0,
+        trackedDays,
+        completionRate: 0,
+        totalCount: 0
+      };
+      byHabit.set(row.id, stat);
+    }
+
+    if (row.day !== null && row.day >= (createdDays.get(row.id) ?? start)) {
+      stat.totalCount += row.value ?? 0;
+      if (row.type === 'daily' ? row.completed === 1 : (row.value ?? 0) >= row.target) {
+        stat.successfulDays += 1;
+      }
+    }
+  }
+
+  return Array.from(byHabit.values()).map((stat) => ({
+    ...stat,
+    completionRate: stat.trackedDays
+      ? Math.round((stat.successfulDays / stat.trackedDays) * 100)
+      : 0
+  }));
+}
+
+export function getJournalEntries(month: string, today: string): JournalEntry[] {
+  const start = `${month}-01`;
+  const end = month === today.slice(0, 7)
+    ? today
+    : new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0))
+        .toISOString()
+        .slice(0, 10);
+
+  return db
+    .prepare(
+      `SELECT h.id AS habitId, h.name AS habitName, h.color AS habitColor,
+              e.day AS date, e.value, e.completed, e.note
+       FROM entries e
+       JOIN habits h ON h.id = e.habit_id
+       WHERE e.day BETWEEN ? AND ? AND trim(e.note) <> ''
+       ORDER BY e.day DESC, h.created_at ASC`
+    )
+    .all(start, end)
+    .map((row) => {
+      const entry = row as JournalEntry;
       return { ...entry, completed: Boolean(entry.completed) };
     });
 }

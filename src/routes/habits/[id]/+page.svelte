@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, Target, TrendingUp } from 'lucide-svelte';
+  import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, RotateCcw, TrendingUp } from 'lucide-svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
+  import WorkspaceNavigation from '$lib/components/WorkspaceNavigation.svelte';
   import type { Habit, HabitDay } from '$lib/types';
 
   export let data: {
@@ -22,6 +23,7 @@
   let entryNote = '';
   let savingEntry = false;
   let entryError = '';
+  let archiving = false;
 
   $: successfulDays = data.days.filter((day) =>
     data.habit.type === 'daily' ? day.completed : day.value >= data.habit.target
@@ -106,6 +108,27 @@
       window.alert('Could not delete the habit. Please try again.');
     }
   }
+
+  async function toggleArchive() {
+    if (archiving) return;
+    archiving = true;
+    try {
+      const response = await fetch(`/api/habits/${data.habit.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ archived: !data.habit.archived })
+      });
+      if (!response.ok) {
+        window.alert('Could not update this habit. Please try again.');
+        return;
+      }
+      window.location.href = data.habit.archived ? '/' : '/?view=archive';
+    } catch {
+      window.alert('Could not connect to the server. Please try again.');
+    } finally {
+      archiving = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -120,7 +143,7 @@
       <span>Ecce <span class="brand-light">Veritas</span></span>
     </a>
     <div class="side-label">YOUR SPACE</div>
-    <a class="nav-link" href="/"><Target size={18} /><span>Today</span></a>
+    <WorkspaceNavigation view="today" month={data.month} progress={completionRate} />
     <div class="sidebar-note">
       <span class="note-icon"><span>✳</span></span>
       <p class="note-title">Small steps count.</p>
@@ -129,6 +152,8 @@
     </div>
     <div class="sidebar-bottom"><span class="status-dot"></span><span>A private space, at your pace</span></div>
   </aside>
+
+  <WorkspaceNavigation mobileOnly view="today" month={data.month} progress={completionRate} />
 
   <main class="main-content">
     <header class="topbar">
@@ -150,7 +175,12 @@
       </div>
       <div class="detail-actions">
         <span class="habit-type-pill">{data.habit.type === 'daily' ? 'Once a day' : `${data.habit.target} times a day`}</span>
-        <button class="delete-link" on:click={removeHabit}>Delete habit</button>
+        <div class="detail-action-buttons">
+          <button class="archive-link" disabled={archiving} on:click={toggleArchive}>
+            {#if data.habit.archived}<RotateCcw size={14} />{archiving ? 'Restoring…' : 'Restore habit'}{:else}<Archive size={14} />{archiving ? 'Archiving…' : 'Archive habit'}{/if}
+          </button>
+          <button class="delete-link" on:click={removeHabit}>Delete habit</button>
+        </div>
       </div>
 
       <section class="detail-summary">
