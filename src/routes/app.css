@@ -350,7 +350,7 @@ h1 { margin: 12px 0 9px; color: #25372b; font-size: clamp(29px, 3.1vw, 37px); le
   .ring-inner { width: 46px; height: 46px; }
 }
 
-:root {
+:root[data-theme="dark"] {
   color-scheme: dark;
   color: #e7e2d8;
   background: #11151e;
@@ -359,7 +359,6 @@ h1 { margin: 12px 0 9px; color: #25372b; font-size: clamp(29px, 3.1vw, 37px); le
   --green: #b7a37a;
   --line: #2c313c;
   --paper: #1a1f2a;
-}
 
 body { background: #11151e; }
 .sidebar { background: #171b25; border-color: #2a303b; }
@@ -510,4 +509,55 @@ h1 { color: #e7e2d8; }
 button:focus-visible, a:focus-visible {
   outline: 2px solid #b3a078;
   outline-offset: 3px;
+}
+}
+
+.theme-toggle,
+.sidebar-collapse {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2e7df;
+  border-radius: 9px;
+  background: #fff;
+  color: #728175;
+}
+.theme-toggle:hover,
+.sidebar-collapse:hover { color: #376c50; background: #f4f7f1; }
+
+.sidebar-collapse { position: absolute; top: 31px; right: -17px; z-index: 4; box-shadow: 0 4px 12px #29382b12; }
+.sidebar.collapsed { width: 74px; align-items: center; padding-inline: 12px; }
+.sidebar.collapsed .brand { padding: 0; }
+.sidebar.collapsed .brand > span:last-child,
+.sidebar.collapsed .side-label,
+.sidebar.collapsed .nav-link span,
+.sidebar.collapsed .sidebar-note,
+.sidebar.collapsed .sidebar-bottom { display: none; }
+.sidebar.collapsed .workspace-navigation { width: 100%; }
+.sidebar.collapsed .nav-link { justify-content: center; padding: 0; }
+.sidebar.collapsed .sidebar-collapse { right: -17px; }
+.app-shell.sidebar-collapsed .main-content { margin-left: 74px; }
+
+:root[data-theme="dark"] .theme-toggle,
+:root[data-theme="dark"] .sidebar-collapse {
+  border-color: #3a404a;
+  background: #242a35;
+  color: #c2b187;
+}
+:root[data-theme="dark"] .theme-toggle:hover,
+:root[data-theme="dark"] .sidebar-collapse:hover {
+  background: #303644;
+  color: #ded0aa;
+}
+
+@media (max-width: 900px) and (min-width: 681px) {
+  .app-shell.sidebar-collapsed .main-content { margin-left: 74px; }
+  .sidebar.collapsed { width: 74px; }
+}
+@media (max-width: 680px) {
+  .mobile-nav { grid-template-columns: repeat(4, 1fr); }
+  .sidebar-collapse { display: none; }
+  .app-shell.sidebar-collapsed .main-content { margin-left: 0; }
+  .theme-toggle { width: 32px; height: 32px; }
 }

@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, RotateCcw, TrendingUp } from 'lucide-svelte';
+  import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, PanelLeftClose, PanelLeftOpen, Pencil, RotateCcw, TrendingUp, X } from 'lucide-svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
   import WorkspaceNavigation from '$lib/components/WorkspaceNavigation.svelte';
+  import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+  import { onMount } from 'svelte';
   import type { Habit, HabitDay } from '$lib/types';
 
   export let data: {
@@ -24,6 +26,51 @@
   let savingEntry = false;
   let entryError = '';
   let archiving = false;
+  let sidebarCollapsed = false;
+  let showEdit = false;
+  let savingHabit = false;
+  let habitEditError = '';
+  let habitEdit = { name: '', description: '' };
+
+  onMount(() => {
+    sidebarCollapsed = localStorage.getItem('ecce-sidebar-collapsed') === 'true';
+  });
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    localStorage.setItem('ecce-sidebar-collapsed', String(sidebarCollapsed));
+  }
+
+  function openHabitEdit() {
+    habitEdit = { name: data.habit.name, description: data.habit.description };
+    habitEditError = '';
+    showEdit = true;
+  }
+
+  async function saveHabitEdit(event: SubmitEvent) {
+    event.preventDefault();
+    if (savingHabit) return;
+    savingHabit = true;
+    habitEditError = '';
+    try {
+      const response = await fetch(`/api/habits/${data.habit.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(habitEdit)
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        habitEditError = result.error ?? 'Could not update this habit.';
+        return;
+      }
+      data = { ...data, habit: result.habit };
+      showEdit = false;
+    } catch {
+      habitEditError = 'Could not connect to the server. Please try again.';
+    } finally {
+      savingHabit = false;
+    }
+  }
 
   $: successfulDays = data.days.filter((day) =>
     data.habit.type === 'daily' ? day.completed : day.value >= data.habit.target
@@ -136,8 +183,11 @@
   <meta name="description" content={`Progress and history for ${data.habit.name}.`} />
 </svelte:head>
 
-<div class="app-shell">
-  <aside class="sidebar">
+<div class:sidebar-collapsed={sidebarCollapsed} class="app-shell">
+  <aside class:collapsed={sidebarCollapsed} class="sidebar">
+    <button class="sidebar-collapse" type="button" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} on:click={toggleSidebar}>
+      {#if sidebarCollapsed}<PanelLeftOpen size={17} />{:else}<PanelLeftClose size={17} />{/if}
+    </button>
     <a class="brand" href="/" aria-label="Ecce Veritas home">
       <span class="brand-mark"><span>✳</span></span>
       <span>Ecce <span class="brand-light">Veritas</span></span>
@@ -159,6 +209,7 @@
     <header class="topbar">
       <div class="mobile-brand"><span class="brand-mark">✳</span> Ecce Veritas</div>
       <a class="back-link" href="/"><ArrowLeft size={17} /> All habits</a>
+      <ThemeToggle />
       <LogoutButton />
     </header>
 
@@ -176,6 +227,7 @@
       <div class="detail-actions">
         <span class="habit-type-pill">{data.habit.type === 'daily' ? 'Once a day' : `${data.habit.target} times a day`}</span>
         <div class="detail-action-buttons">
+          <button class="archive-link" on:click={openHabitEdit}><Pencil size={14} /> Edit habit</button>
           <button class="archive-link" disabled={archiving} on:click={toggleArchive}>
             {#if data.habit.archived}<RotateCcw size={14} />{archiving ? 'Restoring…' : 'Restore habit'}{:else}<Archive size={14} />{archiving ? 'Archiving…' : 'Archive habit'}{/if}
           </button>
@@ -318,3 +370,24 @@
     </section>
   </main>
 </div>
+
+{#if showEdit}
+  <div class="modal-backdrop" role="presentation">
+    <dialog open class="modal" aria-modal="true" aria-labelledby="edit-habit-title">
+      <button class="modal-close" aria-label="Close" on:click={() => (showEdit = false)}><X size={20} /></button>
+      <div class="modal-kicker">MAKE IT YOURS</div>
+      <h2 id="edit-habit-title">Edit habit</h2>
+      <p class="modal-description">Update the name or description for this habit.</p>
+      <form on:submit={saveHabitEdit}>
+        <label for="edit-habit-name">Habit name</label>
+        <input id="edit-habit-name" bind:value={habitEdit.name} maxlength="80" required disabled={savingHabit} />
+        <label for="edit-habit-description">Description <span class="optional">(optional)</span></label>
+        <textarea id="edit-habit-description" bind:value={habitEdit.description} maxlength="240" rows="3" disabled={savingHabit}></textarea>
+        {#if habitEditError}<div class="error-banner modal-error" role="alert">{habitEditError}</div>{/if}
+        <button class="primary-button modal-submit" type="submit" disabled={savingHabit}>
+          {savingHabit ? 'Saving…' : 'Save changes'}
+        </button>
+      </form>
+    </dialog>
+  </div>
+{/if}

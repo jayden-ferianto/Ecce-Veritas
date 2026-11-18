@@ -9,12 +9,16 @@
     ChevronLeft,
     GripVertical,
     Minus,
+    PanelLeftClose,
+    PanelLeftOpen,
     Plus,
     Sparkles,
     X
   } from 'lucide-svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
   import WorkspaceNavigation from '$lib/components/WorkspaceNavigation.svelte';
+  import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+  import { onMount } from 'svelte';
   import type { Habit, JournalEntry, MonthlyHabitStat } from '$lib/types';
 
   export let data: {
@@ -37,6 +41,16 @@
   let saving = false;
   let errorMessage = '';
   let draft = { name: '', description: '', type: 'daily' as 'daily' | 'count', target: 3, color: 'sage' };
+  let sidebarCollapsed = false;
+
+  onMount(() => {
+    sidebarCollapsed = localStorage.getItem('ecce-sidebar-collapsed') === 'true';
+  });
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    localStorage.setItem('ecce-sidebar-collapsed', String(sidebarCollapsed));
+  }
 
   $: completedCount = habits.filter((habit) =>
     habit.type === 'daily' ? habit.completed : habit.value >= habit.target
@@ -268,8 +282,11 @@
   <meta name="description" content="A calm, personal space to grow your daily habits." />
 </svelte:head>
 
-<div class="app-shell">
-  <aside class="sidebar">
+<div class:sidebar-collapsed={sidebarCollapsed} class="app-shell">
+  <aside class:collapsed={sidebarCollapsed} class="sidebar">
+    <button class="sidebar-collapse" type="button" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} on:click={toggleSidebar}>
+      {#if sidebarCollapsed}<PanelLeftOpen size={17} />{:else}<PanelLeftClose size={17} />{/if}
+    </button>
     <a class="brand" href="/" aria-label="Ecce Veritas home">
       <span class="brand-mark"><Sparkles size={19} strokeWidth={2.2} /></span>
       <span>Ecce <span class="brand-light">Veritas</span></span>
@@ -296,6 +313,7 @@
     <header class="topbar">
       <div class="mobile-brand"><span class="brand-mark"><Sparkles size={17} /></span> Ecce Veritas</div>
       <div class="topbar-date"><span class="live-dot"></span>{formattedDate}</div>
+      <ThemeToggle />
       <LogoutButton />
     </header>
 

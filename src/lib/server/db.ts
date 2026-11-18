@@ -132,6 +132,14 @@ export function setHabitArchived(id: string, archived: boolean): void {
   db.prepare('UPDATE habits SET archived = ? WHERE id = ?').run(archived ? 1 : 0, id);
 }
 
+export function updateHabit(id: string, input: { name: string; description: string }): Habit {
+  db.prepare('UPDATE habits SET name = ?, description = ? WHERE id = ?')
+    .run(input.name, input.description, id);
+  const habit = getHabit(id, todayKey());
+  if (!habit) throw new Error('Updated habit could not be loaded from the database.');
+  return habit;
+}
+
 export function reorderHabits(
   scope: 'active' | 'archived' | 'all',
   habitIds: string[]

@@ -31,7 +31,7 @@
       class="nav-link"
       aria-current={view === link.view ? 'page' : undefined}
     >
-      <svelte:component this={link.icon} size={18} />
+      <svelte:component this={link.icon} size={18} strokeWidth={2} />
       <span>{link.label}</span>
       {#if link.view === 'progress'}<span class="nav-meta">{progress}%</span>{/if}
     </a>
@@ -46,7 +46,7 @@
       class:active={view === link.view}
       aria-current={view === link.view ? 'page' : undefined}
     >
-      <svelte:component this={link.icon} size={18} />
+      <svelte:component this={link.icon} size={20} strokeWidth={2} />
       <span>{link.label}</span>
     </a>
   {/each}
