@@ -27,6 +27,7 @@ a { color: inherit; text-decoration: none; }
 .sidebar {
   width: 246px; position: fixed; inset: 0 auto 0 0; z-index: 3; background: #fff;
   border-right: 1px solid #edf0e9; padding: 28px 19px 20px; display: flex; flex-direction: column;
+  transition: width .2s ease, box-shadow .2s ease;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 750; letter-spacing: -1px; color: #294333; padding: 0 7px; }
 .brand-mark { width: 30px; height: 30px; border-radius: 10px; background: #e8f1e7; color: #407355; display: grid; place-items: center; }
@@ -512,8 +513,7 @@ button:focus-visible, a:focus-visible {
 }
 }
 
-.theme-toggle,
-.sidebar-collapse {
+.theme-toggle {
   width: 34px;
   height: 34px;
   display: grid;
@@ -523,37 +523,83 @@ button:focus-visible, a:focus-visible {
   background: #fff;
   color: #728175;
 }
-.theme-toggle:hover,
-.sidebar-collapse:hover { color: #376c50; background: #f4f7f1; }
+.theme-toggle:hover { color: #376c50; background: #f4f7f1; }
 
-.sidebar-collapse { position: absolute; top: 31px; right: -17px; z-index: 4; box-shadow: 0 4px 12px #29382b12; }
+.sidebar-collapse {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 15px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #edf0e9;
+  border-radius: 9px;
+  background: #f8faf7;
+  color: #788579;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.sidebar-collapse:hover { border-color: #dce6da; background: #f0f5ee; color: #376c50; }
+.sidebar-collapse:focus-visible { outline: 2px solid #8eaf91; outline-offset: 2px; }
 .sidebar.collapsed { width: 74px; align-items: center; padding-inline: 12px; }
-.sidebar.collapsed .brand { padding: 0; }
-.sidebar.collapsed .brand > span:last-child,
-.sidebar.collapsed .side-label,
-.sidebar.collapsed .nav-link span,
-.sidebar.collapsed .sidebar-note,
-.sidebar.collapsed .sidebar-bottom { display: none; }
+.sidebar.collapsed:not(.temporarily-expanded) .brand { padding: 0; }
+.sidebar.collapsed:not(.temporarily-expanded) .brand > span:last-child,
+.sidebar.collapsed:not(.temporarily-expanded) .side-label,
+.sidebar.collapsed:not(.temporarily-expanded) .nav-link span,
+.sidebar.collapsed:not(.temporarily-expanded) .sidebar-note,
+.sidebar.collapsed:not(.temporarily-expanded) .sidebar-bottom,
+.sidebar.collapsed:not(.temporarily-expanded) .sidebar-collapse span { display: none; }
 .sidebar.collapsed .workspace-navigation { width: 100%; }
-.sidebar.collapsed .nav-link { justify-content: center; padding: 0; }
-.sidebar.collapsed .sidebar-collapse { right: -17px; }
+.sidebar.collapsed:not(.temporarily-expanded) .nav-link { justify-content: center; padding: 0; }
+.sidebar.collapsed:not(.temporarily-expanded) .sidebar-collapse {
+  justify-content: center;
+  margin-top: auto;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+.sidebar.collapsed:not(.temporarily-expanded) .sidebar-collapse:hover {
+  border-color: #e2e9df;
+  background: #f0f5ee;
+}
+.sidebar.collapsed.temporarily-expanded {
+  width: 246px;
+  align-items: stretch;
+  box-shadow: 10px 0 28px #29382b1c;
+}
+.sidebar.collapsed.temporarily-expanded .sidebar-collapse { margin-top: 15px; }
 .app-shell.sidebar-collapsed .main-content { margin-left: 74px; }
 
-:root[data-theme="dark"] .theme-toggle,
-:root[data-theme="dark"] .sidebar-collapse {
+:root[data-theme="dark"] .theme-toggle {
   border-color: #3a404a;
   background: #242a35;
   color: #c2b187;
 }
-:root[data-theme="dark"] .theme-toggle:hover,
-:root[data-theme="dark"] .sidebar-collapse:hover {
+:root[data-theme="dark"] .theme-toggle:hover {
   background: #303644;
   color: #ded0aa;
+}
+:root[data-theme="dark"] .sidebar-collapse {
+  border-color: #303642;
+  background: #202530;
+  color: #b7b7b0;
+}
+:root[data-theme="dark"] .sidebar-collapse:hover {
+  border-color: #404756;
+  background: #292f3a;
+  color: #d0c09b;
+}
+.sidebar.collapsed:not(.temporarily-expanded) .sidebar-collapse:hover {
+  background: #292f3a;
 }
 
 @media (max-width: 900px) and (min-width: 681px) {
   .app-shell.sidebar-collapsed .main-content { margin-left: 74px; }
   .sidebar.collapsed { width: 74px; }
+  .sidebar.collapsed.temporarily-expanded { width: 205px; }
 }
 @media (max-width: 680px) {
   .mobile-nav { grid-template-columns: repeat(4, 1fr); }

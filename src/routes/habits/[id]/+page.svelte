@@ -27,6 +27,7 @@
   let entryError = '';
   let archiving = false;
   let sidebarCollapsed = false;
+  let sidebarHoverExpanded = false;
   let showEdit = false;
   let savingHabit = false;
   let habitEditError = '';
@@ -38,7 +39,12 @@
 
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
+    sidebarHoverExpanded = false;
     localStorage.setItem('ecce-sidebar-collapsed', String(sidebarCollapsed));
+  }
+
+  function setSidebarHoverExpanded(expanded: boolean) {
+    sidebarHoverExpanded = sidebarCollapsed && expanded;
   }
 
   function openHabitEdit() {
@@ -184,10 +190,12 @@
 </svelte:head>
 
 <div class:sidebar-collapsed={sidebarCollapsed} class="app-shell">
-  <aside class:collapsed={sidebarCollapsed} class="sidebar">
-    <button class="sidebar-collapse" type="button" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} on:click={toggleSidebar}>
-      {#if sidebarCollapsed}<PanelLeftOpen size={17} />{:else}<PanelLeftClose size={17} />{/if}
-    </button>
+  <aside
+    class:collapsed={sidebarCollapsed}
+    class:temporarily-expanded={sidebarHoverExpanded}
+    class="sidebar"
+    on:pointerleave={() => setSidebarHoverExpanded(false)}
+  >
     <a class="brand" href="/" aria-label="Ecce Veritas home">
       <span class="brand-mark"><span>✳</span></span>
       <span>Ecce <span class="brand-light">Veritas</span></span>
@@ -201,6 +209,19 @@
       <div class="note-decoration"><span></span><span></span><span></span></div>
     </div>
     <div class="sidebar-bottom"><span class="status-dot"></span><span>A private space, at your pace</span></div>
+    <button
+      class="sidebar-collapse"
+      type="button"
+      aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      on:click={toggleSidebar}
+      on:pointerenter={() => setSidebarHoverExpanded(true)}
+      on:focus={() => setSidebarHoverExpanded(true)}
+      on:blur={() => setSidebarHoverExpanded(false)}
+    >
+      {#if sidebarCollapsed}<PanelLeftOpen size={17} />{:else}<PanelLeftClose size={17} />{/if}
+      <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+    </button>
   </aside>
 
   <WorkspaceNavigation mobileOnly view="today" month={data.month} progress={completionRate} />
