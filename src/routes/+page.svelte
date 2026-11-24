@@ -293,10 +293,11 @@
     class:collapsed={sidebarCollapsed}
     class:temporarily-expanded={sidebarHoverExpanded}
     class="sidebar"
+    on:pointerenter={() => setSidebarHoverExpanded(true)}
     on:pointerleave={() => setSidebarHoverExpanded(false)}
   >
     <a class="brand" href="/" aria-label="Ecce Veritas home">
-      <span class="brand-mark"><Sparkles size={19} strokeWidth={2.2} /></span>
+      <span class="brand-mark">EV</span>
       <span>Ecce <span class="brand-light">Veritas</span></span>
     </a>
 
@@ -332,7 +333,7 @@
 
   <main class="main-content">
     <header class="topbar">
-      <div class="mobile-brand"><span class="brand-mark"><Sparkles size={17} /></span> Ecce Veritas</div>
+      <div class="mobile-brand"><span class="brand-mark">EV</span> Ecce Veritas</div>
       <div class="topbar-date"><span class="live-dot"></span>{formattedDate}</div>
       <ThemeToggle />
       <LogoutButton />

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, PanelLeftClose, PanelLeftOpen, Pencil, RotateCcw, TrendingUp, X } from 'lucide-svelte';
+  import { Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Flame, PanelLeftClose, PanelLeftOpen, Pencil, RotateCcw, Sparkles, TrendingUp, X } from 'lucide-svelte';
   import LogoutButton from '$lib/components/LogoutButton.svelte';
   import WorkspaceNavigation from '$lib/components/WorkspaceNavigation.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -194,16 +194,17 @@
     class:collapsed={sidebarCollapsed}
     class:temporarily-expanded={sidebarHoverExpanded}
     class="sidebar"
+    on:pointerenter={() => setSidebarHoverExpanded(true)}
     on:pointerleave={() => setSidebarHoverExpanded(false)}
   >
     <a class="brand" href="/" aria-label="Ecce Veritas home">
-      <span class="brand-mark"><span>✳</span></span>
+      <span class="brand-mark">EV</span>
       <span>Ecce <span class="brand-light">Veritas</span></span>
     </a>
     <div class="side-label">YOUR SPACE</div>
     <WorkspaceNavigation view="today" month={data.month} progress={completionRate} />
     <div class="sidebar-note">
-      <span class="note-icon"><span>✳</span></span>
+      <span class="note-icon"><Sparkles size={16} /></span>
       <p class="note-title">Small steps count.</p>
       <p class="note-copy">Show up for yourself, one day at a time.</p>
       <div class="note-decoration"><span></span><span></span><span></span></div>
@@ -228,7 +229,7 @@
 
   <main class="main-content">
     <header class="topbar">
-      <div class="mobile-brand"><span class="brand-mark">✳</span> Ecce Veritas</div>
+      <div class="mobile-brand"><span class="brand-mark">EV</span> Ecce Veritas</div>
       <a class="back-link" href="/"><ArrowLeft size={17} /> All habits</a>
       <ThemeToggle />
       <LogoutButton />
@@ -387,7 +388,7 @@
           </div>
         </section>
       {/if}
-      <footer class="page-footer"><span>One day at a time</span><span>✳</span></footer>
+      <footer class="page-footer"><span>One day at a time</span></footer>
     </section>
   </main>
 </div>

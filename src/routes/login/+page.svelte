@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Eye, EyeOff, Sparkles } from 'lucide-svelte';
+  import { Eye, EyeOff } from 'lucide-svelte';
 
   export let data: { configured: boolean };
   let password = '';
@@ -44,7 +44,7 @@
 <main class="auth-page">
   <section class="auth-card">
     <a class="auth-brand" href="/" aria-label="Ecce Veritas">
-      <span class="brand-mark"><Sparkles size={19} /></span>
+      <span class="brand-mark">EV</span>
       <span>Ecce <span class="brand-light">Veritas</span></span>
     </a>
     <div class="auth-kicker">YOUR PRIVATE SPACE</div>
