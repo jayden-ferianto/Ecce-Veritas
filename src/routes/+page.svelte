@@ -325,7 +325,6 @@
       on:blur={() => setSidebarHoverExpanded(false)}
     >
       {#if sidebarCollapsed}<PanelLeftOpen size={17} />{:else}<PanelLeftClose size={17} />{/if}
-      <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
     </button>
   </aside>
 

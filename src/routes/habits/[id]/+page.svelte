@@ -107,6 +107,15 @@
     return data.habit.type === 'daily' ? day.completed : day.value >= data.habit.target;
   }
 
+  function calendarDaySucceeded(day: HabitDay) {
+    if (day.date === selectedDate) {
+      return data.habit.type === 'daily'
+        ? entryCompleted
+        : entryValue >= data.habit.target;
+    }
+    return daySucceeded(day);
+  }
+
   function selectDay(day: HabitDay) {
     selectedDate = day.date;
     entryValue = day.value;
@@ -221,7 +230,6 @@
       on:blur={() => setSidebarHoverExpanded(false)}
     >
       {#if sidebarCollapsed}<PanelLeftOpen size={17} />{:else}<PanelLeftClose size={17} />{/if}
-      <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
     </button>
   </aside>
 
@@ -313,7 +321,7 @@
             {#each data.historyDays as day}
               <button
                 type="button"
-                class:calendar-done={daySucceeded(day)}
+                class:calendar-done={calendarDaySucceeded(day)}
                 class:calendar-today={day.date === data.today}
                 class:calendar-selected={day.date === selectedDate}
                 class={`calendar-cell ${data.habit.color}`}
